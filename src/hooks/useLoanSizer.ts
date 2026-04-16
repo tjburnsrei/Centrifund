@@ -4,54 +4,104 @@ import { useForm, useWatch, type Resolver } from 'react-hook-form'
 import {
   calculateLoanSizerOutputs,
   loanSizerFormSchema,
+  type FicoBand,
   type LoanSizerFormValues,
   type LoanSizerInputs,
   type LoanSizerOutputs,
 } from '../domain/loanSizer'
 
+/**
+ * Map a qualifying FICO band to the numeric value the engine consumes for
+ * min-FICO gating. "Below 680" is forced to 679 so the engine blocks it.
+ */
+export const FICO_BAND_TO_NUMERIC: Record<FicoBand, number> = {
+  below680: 679,
+  '680-699': 680,
+  '700-719': 700,
+  '720-739': 720,
+  '740+': 740,
+}
+
+export const FICO_BAND_OPTIONS: ReadonlyArray<{
+  value: FicoBand
+  label: string
+  description: string
+}> = [
+  {
+    value: 'below680',
+    label: 'Below 680',
+    description: 'Generally ineligible.',
+  },
+  {
+    value: '680-699',
+    label: '680 – 699',
+    description: 'Eligible for standard Bridge, Light, and Standard Rehab loans.',
+  },
+  {
+    value: '700-719',
+    label: '700 – 719',
+    description: 'Unlocks eligibility for Ground-Up Construction loans.',
+  },
+  {
+    value: '720-739',
+    label: '720 – 739',
+    description: 'Exempt from the rehab-budget size cap per the rate sheet.',
+  },
+  {
+    value: '740+',
+    label: '740 or higher',
+    description:
+      'Unrestricted access to the maximum 90% initial / 95% total LTC for Platinum Light Rehab.',
+  },
+]
+
 export const loanSizerDefaultValues: LoanSizerFormValues = {
-  transactionType: 'purchase',
-  estimatedArv: null,
-  guarantorExperience: '3-4',
+  estimatedArv: 800_000,
+  guarantorExperience: '5+',
   useChange: false,
-  propertyState: 'FL',
+  propertyState: 'NY',
   propertyCounty: null as string | null,
-  qualifyingFico: 720,
-  purchasePriceOrAsIsValue: 250_000,
+  ficoBand: '740+',
+  purchasePriceOrAsIsValue: 500_000,
   citizenship: 'domestic',
-  projectBudget: 50_000,
+  projectBudget: 100_000,
   pointsOrOriginationChoice: 1,
-  requestedDay1LoanAmount: 200_000,
-  totalPayoffs: null,
+  requestedDay1LoanAmount: 450_000,
   permitsApprovedOrImminent: false,
   roofRemoval: false,
   wallRemoval: false,
   nonWarrantableCondo: false,
-  projectTypeOverride: 'Light Rehab',
+  projectTypeOverride: null,
   isTwoToFourUnits: false,
+  brokerPointsPct: 0,
+  underwritingFeeUsd: 1_995,
+  attorneyFeeUsd: 0,
+  appraisalFeeUsd: 0,
 }
 
 function formValuesToInputs(values: LoanSizerFormValues): LoanSizerInputs {
   return {
-    transactionType: values.transactionType,
     estimatedArv: values.estimatedArv,
     guarantorExperience: values.guarantorExperience,
     useChange: values.useChange,
     propertyState: values.propertyState,
     propertyCounty: values.propertyCounty,
-    qualifyingFico: values.qualifyingFico,
+    qualifyingFico: FICO_BAND_TO_NUMERIC[values.ficoBand],
     purchasePriceOrAsIsValue: values.purchasePriceOrAsIsValue,
     citizenship: values.citizenship,
     projectBudget: values.projectBudget,
     pointsOrOriginationChoice: values.pointsOrOriginationChoice,
     requestedDay1LoanAmount: values.requestedDay1LoanAmount,
-    totalPayoffs: values.totalPayoffs,
     permitsApprovedOrImminent: values.permitsApprovedOrImminent ?? false,
     roofRemoval: values.roofRemoval ?? false,
     wallRemoval: values.wallRemoval ?? false,
     nonWarrantableCondo: values.nonWarrantableCondo ?? false,
     projectTypeOverride: values.projectTypeOverride,
     isTwoToFourUnits: values.isTwoToFourUnits ?? false,
+    brokerPointsPct: values.brokerPointsPct,
+    underwritingFeeUsd: values.underwritingFeeUsd,
+    attorneyFeeUsd: values.attorneyFeeUsd,
+    appraisalFeeUsd: values.appraisalFeeUsd,
   }
 }
 
@@ -70,17 +120,19 @@ export function useLoanSizer(): {
 
   const values = useWatch({ control: form.control }) as Partial<LoanSizerFormValues>
 
-  const outputs = useMemo(() => {
-    const merged: LoanSizerFormValues = {
-      ...loanSizerDefaultValues,
-      ...values,
-    }
-    return calculateLoanSizerOutputs(formValuesToInputs(merged))
-  }, [values])
+  const merged: LoanSizerFormValues = useMemo(
+    () => ({ ...loanSizerDefaultValues, ...values }),
+    [values],
+  )
+
+  const outputs = useMemo(
+    () => calculateLoanSizerOutputs(formValuesToInputs(merged)),
+    [merged],
+  )
 
   return {
     form,
     outputs,
-    values: { ...loanSizerDefaultValues, ...values },
+    values: merged,
   }
 }

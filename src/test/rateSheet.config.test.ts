@@ -20,8 +20,9 @@ const TIERS: Tier[] = ['Silver', 'Gold', 'Platinum']
 const PROJECTS: ProjectType[] = [
   'Bridge No Rehab',
   'Light Rehab',
-  'Heavy Rehab',
-  'Ground Up Construction',
+  'Standard Rehab',
+  'Super Rehab',
+  'GUC',
 ]
 
 describe('RATE_SHEET_CONFIG structure', () => {
@@ -31,7 +32,7 @@ describe('RATE_SHEET_CONFIG structure', () => {
   })
 
   it('maps every experience band to a tier', () => {
-    expect(RATE_SHEET_CONFIG.tiers.experienceToTier['1-2']).toBe('Silver')
+    expect(RATE_SHEET_CONFIG.tiers.experienceToTier['0-2']).toBe('Silver')
     expect(RATE_SHEET_CONFIG.tiers.experienceToTier['3-4']).toBe('Gold')
     expect(RATE_SHEET_CONFIG.tiers.experienceToTier['5+']).toBe('Platinum')
   })
@@ -112,9 +113,8 @@ describe('RATE_SHEET_CONFIG structure', () => {
     }
   })
 
-  it('marks Silver Ground Up as not offered (null caps)', () => {
-    const cell =
-      RATE_SHEET_CONFIG.leverage.matrix.Silver['Ground Up Construction']
+  it('marks Silver GUC as not offered (null caps)', () => {
+    const cell = RATE_SHEET_CONFIG.leverage.matrix.Silver.GUC
     expect(cell.initialLtc.basePct).toBeNull()
     expect(cell.maxTotalLtcPct).toBeNull()
   })
@@ -122,7 +122,7 @@ describe('RATE_SHEET_CONFIG structure', () => {
   it('exposes FICO minimums', () => {
     expect(RATE_SHEET_CONFIG.fico.defaultMinimum).toBe(680)
     expect(
-      RATE_SHEET_CONFIG.fico.minimumByProjectType['Ground Up Construction'],
+      RATE_SHEET_CONFIG.fico.minimumByProjectType.GUC,
     ).toBe(700)
   })
 
@@ -153,9 +153,10 @@ describe('RATE_SHEET_CONFIG structure', () => {
     expect(maxReduction).toBe(15)
   })
 
-  it('includes NY county allowlist uppercase-normalized in rules layer', () => {
-    expect(RATE_SHEET_CONFIG.adjustments.newYorkSelectCounties.length).toBeGreaterThan(
-      5,
+  it('captures separate NY heavy and moderate county lists', () => {
+    expect(RATE_SHEET_CONFIG.adjustments.newYorkHeavyCounties).toContain('Kings')
+    expect(RATE_SHEET_CONFIG.adjustments.newYorkModerateCounties).toContain(
+      'Nassau',
     )
   })
 })
@@ -207,27 +208,21 @@ describe('Config-driven rule behavior', () => {
     }
   })
 
-  it('transaction add-ons sum from config', () => {
-    const cash = RATE_SHEET_CONFIG.rates.transactionAddOns.find(
-      (a) => a.id === 'cash_out_refi',
-    )!.addRatePp
+  it('project add-ons sum from config', () => {
     const guc = RATE_SHEET_CONFIG.rates.projectAddOns.find(
       (a) => a.id === 'ground_up',
     )!.addRatePp
-    expect(
-      getApplicableRateAddOns('cashOutRefi', 'Ground Up Construction', 'Gold'),
-    ).toBe(cash + guc)
+    expect(getApplicableRateAddOns('GUC', 'Gold')).toBe(guc)
   })
 
   it('getMostRestrictiveNegativeAdjustment uses config reduction values', () => {
     const ny = getMostRestrictiveNegativeAdjustment({
-      transactionType: 'purchase',
       citizenship: 'domestic',
       propertyState: 'NY',
       propertyCounty: 'Kings',
     })
     const rule = RATE_SHEET_CONFIG.adjustments.negativeLeverageRules.find(
-      (r) => r.id === 'ny_select_counties',
+      (r) => r.id === 'ny_heavy_counties',
     )!
     expect(ny.leverageReductionPercentagePoints).toBe(rule.reductionPp)
     expect(ny.kind).toBe(rule.kind)
@@ -235,7 +230,7 @@ describe('Config-driven rule behavior', () => {
 
   it('negativeAdjustmentLabel resolves from config', () => {
     const rule = RATE_SHEET_CONFIG.adjustments.negativeLeverageRules.find(
-      (r) => r.id === 'fl_tx',
+      (r) => r.id === 'fl_tx_nassau_suffolk',
     )!
     expect(negativeAdjustmentLabel(rule.kind)).toBe(rule.summaryLabel)
   })
@@ -243,7 +238,7 @@ describe('Config-driven rule behavior', () => {
   it('selectLenderFeeUsd matches fee selection rules', () => {
     for (const rule of RATE_SHEET_CONFIG.fees.selectionRules) {
       const pt = rule.match.groundUpConstruction
-        ? 'Ground Up Construction'
+        ? 'GUC'
         : 'Light Rehab'
       expect(
         selectLenderFeeUsd(pt, rule.match.twoToFourUnits),

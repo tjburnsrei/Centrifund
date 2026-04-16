@@ -1,21 +1,26 @@
-export type TransactionType = 'purchase' | 'rateTermRefi' | 'cashOutRefi'
-
 export type Tier = 'Silver' | 'Gold' | 'Platinum'
 
 export type ProjectType =
   | 'Bridge No Rehab'
   | 'Light Rehab'
-  | 'Heavy Rehab'
-  | 'Ground Up Construction'
+  | 'Standard Rehab'
+  | 'Super Rehab'
+  | 'GUC'
 
-export type GuarantorExperience = '1-2' | '3-4' | '5+'
+export type GuarantorExperience = '0-2' | '3-4' | '5+'
 
 export type Citizenship = 'domestic' | 'foreignNational'
 
 export type OriginationPointsChoice = 1 | 0.5 | 0
 
+export type FicoBand =
+  | 'below680'
+  | '680-699'
+  | '700-719'
+  | '720-739'
+  | '740+'
+
 export interface LoanSizerInputs {
-  transactionType: TransactionType
   estimatedArv: number | null
   guarantorExperience: GuarantorExperience
   useChange: boolean
@@ -27,7 +32,6 @@ export interface LoanSizerInputs {
   projectBudget: number | null
   pointsOrOriginationChoice?: OriginationPointsChoice | null
   requestedDay1LoanAmount: number | null
-  totalPayoffs?: number | null
   permitsApprovedOrImminent?: boolean
   roofRemoval?: boolean
   wallRemoval?: boolean
@@ -35,9 +39,15 @@ export interface LoanSizerInputs {
   projectTypeOverride?: ProjectType | null
   /** Optional; defaults false. Used only for lender fee selection assumptions. */
   isTwoToFourUnits?: boolean
+  /** Broker points (percentage of Day 1 loan) used in cash-to-close only. */
+  brokerPointsPct?: number | null
+  /** Underwriting, attorney, appraisal fees in USD; feed cash-to-close only. */
+  underwritingFeeUsd?: number | null
+  attorneyFeeUsd?: number | null
+  appraisalFeeUsd?: number | null
 }
 
-export type ProfitabilityResult = 'Pass' | 'Review' | 'Ineligible'
+export type ProfitabilityResult = 'Pass' | 'Fail' | 'Ineligible'
 
 export interface LoanSizerOutputs {
   projectType: ProjectType | null
@@ -57,8 +67,14 @@ export interface LoanSizerOutputs {
   requestedLtv: number | null
   requestedLtc: number | null
   requestedLtarv: number | null
+  /** Adjusted leverage caps (post all bonuses, adjustments, condo) exposed for the UI. */
+  maxInitialLtcPct: number | null
+  maxTotalLtcPct: number | null
+  maxArvLtvPct: number | null
   downPaymentNeeded: number | null
   estimatedCashToCoverClosing: number | null
+  /** Interest-only monthly payment on the requested Day 1 loan. */
+  estimatedMonthlyPayment: number | null
   liquidityRequired: number | null
   minFico: number | null
   maxLoanAmount: number | null
@@ -70,10 +86,9 @@ export interface LoanSizerOutputs {
 
 export type NegativeAdjustmentKind =
   | 'none'
-  | 'cashOutRefi'
   | 'foreignNational'
-  | 'floridaOrTexas'
-  | 'newYorkSelectCounties'
+  | 'floridaTexasOrNassauSuffolk'
+  | 'newYorkHeavyCounties'
 
 export interface NegativeAdjustmentSelection {
   kind: NegativeAdjustmentKind
@@ -133,12 +148,6 @@ export interface OriginationOptionConfig {
   sortOrder: number
 }
 
-export interface TransactionRateAddOnConfig {
-  id: string
-  addRatePp: number
-  when: { transactionType: TransactionType }
-}
-
 export interface ProjectRateAddOnConfig {
   id: string
   addRatePp: number
@@ -165,10 +174,9 @@ export interface NegativeLeverageRuleConfig {
   reductionPp: number
   /** Discriminator for matcher in rules layer. */
   matchType:
-    | 'transactionCashOut'
     | 'citizenshipForeignNational'
-    | 'stateFloridaOrTexas'
-    | 'newYorkAllowlistCounty'
+    | 'stateFloridaTexasOrNassauSuffolk'
+    | 'newYorkHeavyCounty'
   /** Human-readable description for UI / assumptions. */
   summaryLabel: string
 }
@@ -194,7 +202,6 @@ export interface RateSheetConfig {
   rates: {
     baseRateRows: readonly BaseRateRowConfig[]
     configurableAdditionalSpreadPp: number
-    transactionAddOns: readonly TransactionRateAddOnConfig[]
     projectAddOns: readonly ProjectRateAddOnConfig[]
   }
   projectTypes: readonly ProjectTypeConfig[]
@@ -205,6 +212,11 @@ export interface RateSheetConfig {
   }
   leverage: {
     matrix: Record<Tier, Record<ProjectType, LeverageMatrixCellConfig>>
+    purchaseBonusPp: number
+    lowRehabRatioThreshold: number
+    smallDealLowRehabRatioThreshold: number
+    smallDealLtarvDollarThreshold: number
+    gucPermitsInitialLtvBonusByTier: Partial<Record<Tier, number>>
   }
   fico: {
     defaultMinimum: number
@@ -225,7 +237,10 @@ export interface RateSheetConfig {
      * (non-cumulative). Condo handled separately.
      */
     negativeLeverageRules: readonly NegativeLeverageRuleConfig[]
-    newYorkSelectCounties: readonly string[]
+    newYorkHeavyCounties: readonly string[]
+    newYorkModerateCounties: readonly string[]
+    unavailableStates: readonly string[]
+    entityOnlyStates: readonly string[]
     stateCodes: {
       florida: string
       texas: string

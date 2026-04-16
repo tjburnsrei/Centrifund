@@ -1,7 +1,8 @@
 import {
   leverageMatrixCellToRowConfig,
   NEGATIVE_ADJUSTMENT_LABELS,
-  NEW_YORK_ADJUSTMENT_COUNTIES,
+  NEW_YORK_HEAVY_COUNTIES,
+  NEW_YORK_MODERATE_COUNTIES,
   RATE_SHEET_CONFIG,
 } from './constants'
 import type {
@@ -14,7 +15,6 @@ import type {
   OriginationPointsChoice,
   ProjectType,
   Tier,
-  TransactionType,
 } from './types'
 
 export function deriveTier(
@@ -26,9 +26,38 @@ export function deriveTier(
 }
 
 export function deriveProjectType(
-  inputs: Pick<LoanSizerInputs, 'projectTypeOverride'>,
+  inputs: Pick<
+    LoanSizerInputs,
+    | 'purchasePriceOrAsIsValue'
+    | 'projectBudget'
+    | 'roofRemoval'
+    | 'wallRemoval'
+    | 'projectTypeOverride'
+  >,
 ): ProjectType | null {
-  return inputs.projectTypeOverride ?? null
+  const isGuc = Boolean(inputs.roofRemoval || inputs.wallRemoval)
+  if (isGuc) return 'GUC'
+
+  const value = inputs.purchasePriceOrAsIsValue
+  const budget = inputs.projectBudget
+
+  if (
+    value === null ||
+    budget === null ||
+    !Number.isFinite(value) ||
+    !Number.isFinite(budget) ||
+    value <= 0 ||
+    budget < 0
+  ) {
+    return inputs.projectTypeOverride ?? null
+  }
+
+  const rehabRatio = budget / value
+  if (budget < value * 0.05) return 'Bridge No Rehab'
+  if (rehabRatio < 0.25) return 'Light Rehab'
+  if (rehabRatio < 0.5) return 'Standard Rehab'
+  if (rehabRatio < 2.5) return 'Super Rehab'
+  return null
 }
 
 function normalizeCounty(county: string | null | undefined): string {
@@ -44,25 +73,26 @@ function negativeRuleApplies(
   matchType: (typeof RATE_SHEET_CONFIG.adjustments.negativeLeverageRules)[number]['matchType'],
   inputs: Pick<
     LoanSizerInputs,
-    'transactionType' | 'citizenship' | 'propertyState' | 'propertyCounty'
+    'citizenship' | 'propertyState' | 'propertyCounty'
   >,
 ): boolean {
   const { stateCodes } = RATE_SHEET_CONFIG.adjustments
 
   switch (matchType) {
-    case 'transactionCashOut':
-      return inputs.transactionType === 'cashOutRefi'
     case 'citizenshipForeignNational':
       return inputs.citizenship === 'foreignNational'
-    case 'stateFloridaOrTexas': {
+    case 'stateFloridaTexasOrNassauSuffolk': {
       const st = inputs.propertyState.trim().toUpperCase()
-      return st === stateCodes.florida || st === stateCodes.texas
+      if (st === stateCodes.florida || st === stateCodes.texas) return true
+      if (st !== stateCodes.newYork) return false
+      const c = normalizeCounty(inputs.propertyCounty)
+      return c.length > 0 && NEW_YORK_MODERATE_COUNTIES.has(c)
     }
-    case 'newYorkAllowlistCounty': {
+    case 'newYorkHeavyCounty': {
       const st = inputs.propertyState.trim().toUpperCase()
       if (st !== stateCodes.newYork) return false
       const c = normalizeCounty(inputs.propertyCounty)
-      return c.length > 0 && NEW_YORK_ADJUSTMENT_COUNTIES.has(c)
+      return c.length > 0 && NEW_YORK_HEAVY_COUNTIES.has(c)
     }
     default:
       return unreachableNegativeMatch(matchType)
@@ -77,10 +107,7 @@ function negativeRuleApplies(
 export function getMostRestrictiveNegativeAdjustment(
   inputs: Pick<
     LoanSizerInputs,
-    | 'transactionType'
-    | 'citizenship'
-    | 'propertyState'
-    | 'propertyCounty'
+    'citizenship' | 'propertyState' | 'propertyCounty'
   >,
 ): NegativeAdjustmentSelection {
   const candidates: NegativeAdjustmentSelection[] = [
@@ -115,27 +142,16 @@ export function getBaseRate(
 }
 
 export function getApplicableRateAddOns(
-  transactionType: TransactionType,
   projectType: ProjectType | null,
   tier: Tier | null,
 ): number {
-  let add = 0
-  for (const addon of RATE_SHEET_CONFIG.rates.transactionAddOns) {
-    if (addon.when.transactionType === transactionType) {
-      add += addon.addRatePp
+  if (projectType === 'GUC') {
+    if (tier !== null && RATE_SHEET_CONFIG.groundUp.allowedTierSet.has(tier)) {
+      return RATE_SHEET_CONFIG.rates.projectAddOns[0]?.addRatePp ?? 0
     }
+    return 0
   }
-  for (const addon of RATE_SHEET_CONFIG.rates.projectAddOns) {
-    if (projectType !== addon.when.projectType) continue
-    if (addon.allowedTiers === null) {
-      add += addon.addRatePp
-      continue
-    }
-    if (tier !== null && addon.allowedTiers.includes(tier)) {
-      add += addon.addRatePp
-    }
-  }
-  return add
+  return 0
 }
 
 export function applyFinalRateAdjustments(
@@ -197,23 +213,103 @@ export function getBaseLeverage(
   }
 }
 
-function subtractPp(value: number | null, pp: number): number | null {
-  if (value === null) return null
-  return Math.max(0, value - pp)
+export function getPositiveLeverageBonusPp(
+  inputs: Pick<
+    LoanSizerInputs,
+    | 'qualifyingFico'
+    | 'nonWarrantableCondo'
+    | 'purchasePriceOrAsIsValue'
+    | 'projectBudget'
+    | 'estimatedArv'
+  >,
+  tier: Tier | null,
+  projectType: ProjectType | null,
+  baseCaps: LeverageCaps | null,
+): number {
+  if (
+    tier === null ||
+    projectType === null ||
+    baseCaps === null ||
+    baseCaps.maxArvLtvPct === null ||
+    projectType === 'Bridge No Rehab' ||
+    projectType === 'GUC'
+  ) {
+    return 0
+  }
+
+  const ficoOk = (inputs.qualifyingFico ?? 0) >= 720
+  const tierOk = tier !== 'Silver'
+  const condoOk = !(inputs.nonWarrantableCondo ?? false)
+
+  const value = inputs.purchasePriceOrAsIsValue
+  const budget = inputs.projectBudget
+  if (
+    value === null ||
+    budget === null ||
+    !Number.isFinite(value) ||
+    !Number.isFinite(budget) ||
+    value <= 0 ||
+    budget < 0
+  ) {
+    return 0
+  }
+
+  const rehabRatio = budget / value
+  const ltarvDollarCap =
+    inputs.estimatedArv !== null && Number.isFinite(inputs.estimatedArv)
+      ? (baseCaps.maxArvLtvPct / 100) * inputs.estimatedArv
+      : Number.POSITIVE_INFINITY
+
+  const lowRehabCheck =
+    rehabRatio <= RATE_SHEET_CONFIG.leverage.lowRehabRatioThreshold ||
+    (ltarvDollarCap <= RATE_SHEET_CONFIG.leverage.smallDealLtarvDollarThreshold &&
+      rehabRatio <= RATE_SHEET_CONFIG.leverage.smallDealLowRehabRatioThreshold)
+
+  return ficoOk && tierOk && condoOk && lowRehabCheck
+    ? RATE_SHEET_CONFIG.leverage.purchaseBonusPp
+    : 0
+}
+
+export function getGucPermitsInitialLtvBonusPp(
+  projectType: ProjectType | null,
+  tier: Tier | null,
+  permitsApprovedOrImminent: boolean,
+): number {
+  if (projectType !== 'GUC' || tier === null || !permitsApprovedOrImminent) {
+    return 0
+  }
+  return RATE_SHEET_CONFIG.leverage.gucPermitsInitialLtvBonusByTier[tier] ?? 0
 }
 
 export function applyLeverageAdjustments(
   caps: LeverageCaps,
+  positiveBonusPp: number,
   negativeAdjustmentPp: number,
+  gucPermitsInitialLtvBonusPp: number,
   nonWarrantableCondo: boolean,
 ): LeverageCaps {
   const condo = RATE_SHEET_CONFIG.adjustments.nonWarrantableCondo
 
   let next: LeverageCaps = {
-    maxInitialLtcPct: subtractPp(caps.maxInitialLtcPct, negativeAdjustmentPp),
-    maxRehabLtcPct: subtractPp(caps.maxRehabLtcPct, negativeAdjustmentPp),
-    maxTotalLtcPct: subtractPp(caps.maxTotalLtcPct, negativeAdjustmentPp),
-    maxArvLtvPct: subtractPp(caps.maxArvLtvPct, negativeAdjustmentPp),
+    maxInitialLtcPct:
+      caps.maxInitialLtcPct === null
+        ? null
+        : Math.max(
+            0,
+            caps.maxInitialLtcPct +
+              positiveBonusPp -
+              negativeAdjustmentPp +
+              gucPermitsInitialLtvBonusPp,
+          ),
+    maxRehabLtcPct: caps.maxRehabLtcPct,
+    maxTotalLtcPct:
+      caps.maxTotalLtcPct === null
+        ? null
+        : Math.max(0, caps.maxTotalLtcPct + positiveBonusPp - negativeAdjustmentPp),
+    maxArvLtvPct:
+      caps.maxArvLtvPct === null
+        ? null
+        : Math.max(0, caps.maxArvLtvPct - negativeAdjustmentPp),
   }
 
   if (nonWarrantableCondo) {
@@ -244,7 +340,7 @@ export function selectLenderFeeUsd(
   projectType: ProjectType | null,
   isTwoToFourUnits: boolean,
 ): number | null {
-  const groundUpConstruction = projectType === 'Ground Up Construction'
+  const groundUpConstruction = projectType === 'GUC'
   for (const rule of RATE_SHEET_CONFIG.fees.selectionRules) {
     if (
       rule.match.groundUpConstruction === groundUpConstruction &&

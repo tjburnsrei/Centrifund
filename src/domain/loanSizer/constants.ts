@@ -52,8 +52,9 @@ function rehabCell(
   return {
     initialLtc: {
       basePct: baseInitial,
-      elevatedWithPermitsApprovedPct: starredInitial,
-      sheetShowsStarredInitialLtc: true,
+      elevatedWithPermitsApprovedPct:
+        starredInitial === baseInitial ? null : starredInitial,
+      sheetShowsStarredInitialLtc: starredInitial !== baseInitial,
       rateSheetConditionKey: key,
     },
     maxRehabLtcPct: rehabLtc,
@@ -89,22 +90,15 @@ export function leverageMatrixCellToRowConfig(
   }
 }
 
-const NY_COUNTIES = [
-  'Albany',
+const NY_HEAVY_COUNTIES = [
   'Bronx',
-  'Dutchess',
   'Kings',
-  'Nassau',
   'New York',
-  'Orange',
-  'Putnam',
   'Queens',
   'Richmond',
-  'Rockland',
-  'Suffolk',
-  'Ulster',
-  'Westchester',
 ] as const
+
+const NY_MODERATE_COUNTIES = ['Nassau', 'Suffolk'] as const
 
 /**
  * Single normalized object: tiering, rates, add-ons, leverage (with starred flags),
@@ -121,20 +115,16 @@ export const RATE_SHEET_CONFIG: RateSheetConfig = {
   documentation: {
     globalAssumptions: [
       'Loan term displayed as 12 months per rate sheet summary.',
-      'Product / rehab labels follow the PDF (Bridge — No Rehab, Light Rehab, Heavy Rehab, Ground Up). Public RTL-style calculators may use different names (e.g. Standard/Super Rehab); this tool does not—map any external labels explicitly if needed.',
-      'Leverage matrix cells must be verified against the official rate sheet PDF.',
-      'New York county list for the −15pp adjustment is an allowlist assumption; confirm against underwriting guidelines.',
-      'Profitability uses ARV vs requested total loan (configurable rule); not a credit decision.',
-      'Lender fee selection follows ordered rules in config (first match wins).',
-      'Negative leverage adjustments in config are non-cumulative; engine selects the single largest reduction.',
-      'Non-warrantable condo applies after geographic/product adjustment (separate post-process).',
-      'Negative sheet notes referencing “initial LTC” are applied uniformly to all leverage caps unless underwriting narrows scope.',
+      'Project type is auto-classified from rehab ratio and GUC flags; the UI does not allow manual override.',
+      'The logic map uses the 5-type taxonomy: Bridge No Rehab, Light Rehab, Standard Rehab, Super Rehab, and GUC.',
+      'Small-deal low-rehab bonus logic uses the LTARV-constrained dollar cap from the logic map text (`base LTARV × ARV <= $350k`) because the original note is phrased ambiguously.',
+      'Negative leverage adjustments are non-cumulative; the single most restrictive one applies before condo and GUC permit handling.',
     ],
   },
 
   tiers: {
     experienceToTier: {
-      '1-2': 'Silver',
+      '0-2': 'Silver',
       '3-4': 'Gold',
       '5+': 'Platinum',
     } satisfies Record<GuarantorExperience, Tier>,
@@ -165,23 +155,11 @@ export const RATE_SHEET_CONFIG: RateSheetConfig = {
       },
     ],
     configurableAdditionalSpreadPp: 0,
-    transactionAddOns: [
-      {
-        id: 'rate_term_refi',
-        addRatePp: 0.5,
-        when: { transactionType: 'rateTermRefi' },
-      },
-      {
-        id: 'cash_out_refi',
-        addRatePp: 1.0,
-        when: { transactionType: 'cashOutRefi' },
-      },
-    ],
     projectAddOns: [
       {
         id: 'ground_up',
         addRatePp: 0.75,
-        when: { projectType: 'Ground Up Construction' },
+        when: { projectType: 'GUC' },
         allowedTiers: ['Gold', 'Platinum'],
       },
     ],
@@ -194,12 +172,13 @@ export const RATE_SHEET_CONFIG: RateSheetConfig = {
       sortOrder: 1,
     },
     { id: 'Light Rehab', displayLabel: 'Light Rehab', sortOrder: 2 },
-    { id: 'Heavy Rehab', displayLabel: 'Heavy Rehab', sortOrder: 3 },
+    { id: 'Standard Rehab', displayLabel: 'Standard Rehab', sortOrder: 3 },
     {
-      id: 'Ground Up Construction',
-      displayLabel: 'Ground Up Construction',
+      id: 'Super Rehab',
+      displayLabel: 'Super Rehab',
       sortOrder: 4,
     },
+    { id: 'GUC', displayLabel: 'GUC', sortOrder: 5 },
   ],
 
   groundUp: {
@@ -211,43 +190,40 @@ export const RATE_SHEET_CONFIG: RateSheetConfig = {
     matrix: {
       Platinum: {
         'Bridge No Rehab': bridgeNoRehab(75, 'PLATINUM_BRIDGE_INITIAL_75'),
-        'Light Rehab': rehabCell(85, 90, 100, 90, 75, 'PLATINUM_LIGHT_STARRED_INITIAL'),
-        'Heavy Rehab': rehabCell(80, 85, 100, 85, 72.5, 'PLATINUM_HEAVY_STARRED_INITIAL'),
-        'Ground Up Construction': rehabCell(
-          80,
-          85,
-          100,
-          90,
-          75,
-          'PLATINUM_GUC_STARRED_INITIAL',
-        ),
+        'Light Rehab': rehabCell(85, 85, 100, 90, 75, 'PLATINUM_LIGHT'),
+        'Standard Rehab': rehabCell(85, 85, 100, 90, 75, 'PLATINUM_STANDARD'),
+        'Super Rehab': rehabCell(80, 80, 100, 85, 75, 'PLATINUM_SUPER'),
+        GUC: rehabCell(50, 50, 100, 90, 70, 'PLATINUM_GUC'),
       },
       Gold: {
         'Bridge No Rehab': bridgeNoRehab(75, 'GOLD_BRIDGE_INITIAL_75'),
-        'Light Rehab': rehabCell(80, 85, 100, 85, 72.5, 'GOLD_LIGHT_STARRED_INITIAL'),
-        'Heavy Rehab': rehabCell(75, 80, 100, 80, 70, 'GOLD_HEAVY_STARRED_INITIAL'),
-        'Ground Up Construction': rehabCell(
-          75,
-          80,
-          100,
-          85,
-          72.5,
-          'GOLD_GUC_STARRED_INITIAL',
-        ),
+        'Light Rehab': rehabCell(85, 85, 100, 90, 75, 'GOLD_LIGHT'),
+        'Standard Rehab': rehabCell(85, 85, 100, 90, 75, 'GOLD_STANDARD'),
+        'Super Rehab': rehabCell(75, 75, 100, 85, 70, 'GOLD_SUPER'),
+        GUC: rehabCell(50, 50, 100, 85, 70, 'GOLD_GUC'),
       },
       Silver: {
         'Bridge No Rehab': bridgeNoRehab(75, 'SILVER_BRIDGE_INITIAL_75'),
-        'Light Rehab': rehabCell(75, 80, 100, 80, 70, 'SILVER_LIGHT_STARRED_INITIAL'),
-        'Heavy Rehab': rehabCell(70, 75, 100, 75, 67.5, 'SILVER_HEAVY_STARRED_INITIAL'),
-        'Ground Up Construction': notOfferedCell('SILVER_GUC_NOT_ON_SHEET'),
+        'Light Rehab': rehabCell(85, 85, 100, 90, 75, 'SILVER_LIGHT'),
+        'Standard Rehab': rehabCell(80, 80, 100, 85, 75, 'SILVER_STANDARD'),
+        'Super Rehab': notOfferedCell('SILVER_SUPER_NOT_ON_SHEET'),
+        GUC: notOfferedCell('SILVER_GUC_NOT_ON_SHEET'),
       },
+    },
+    purchaseBonusPp: 5,
+    lowRehabRatioThreshold: 0.25,
+    smallDealLowRehabRatioThreshold: 0.35,
+    smallDealLtarvDollarThreshold: 350_000,
+    gucPermitsInitialLtvBonusByTier: {
+      Gold: 15,
+      Platinum: 20,
     },
   },
 
   fico: {
     defaultMinimum: 680,
     minimumByProjectType: {
-      'Ground Up Construction': 700,
+      GUC: 700,
     },
   },
 
@@ -284,13 +260,6 @@ export const RATE_SHEET_CONFIG: RateSheetConfig = {
   adjustments: {
     negativeLeverageRules: [
       {
-        id: 'cash_out_refi',
-        kind: 'cashOutRefi',
-        reductionPp: 5,
-        matchType: 'transactionCashOut',
-        summaryLabel: 'Cash-out refinance (−5pp leverage)',
-      },
-      {
         id: 'foreign_national',
         kind: 'foreignNational',
         reductionPp: 5,
@@ -298,21 +267,24 @@ export const RATE_SHEET_CONFIG: RateSheetConfig = {
         summaryLabel: 'Foreign national (−5pp leverage)',
       },
       {
-        id: 'fl_tx',
-        kind: 'floridaOrTexas',
+        id: 'fl_tx_nassau_suffolk',
+        kind: 'floridaTexasOrNassauSuffolk',
         reductionPp: 5,
-        matchType: 'stateFloridaOrTexas',
-        summaryLabel: 'Florida / Texas (−5pp leverage)',
+        matchType: 'stateFloridaTexasOrNassauSuffolk',
+        summaryLabel: 'Florida / Texas / Nassau / Suffolk (−5pp leverage)',
       },
       {
-        id: 'ny_select_counties',
-        kind: 'newYorkSelectCounties',
+        id: 'ny_heavy_counties',
+        kind: 'newYorkHeavyCounties',
         reductionPp: 15,
-        matchType: 'newYorkAllowlistCounty',
-        summaryLabel: 'New York (select counties) (−15pp leverage)',
+        matchType: 'newYorkHeavyCounty',
+        summaryLabel: 'New York heavy counties (−15pp leverage)',
       },
     ],
-    newYorkSelectCounties: [...NY_COUNTIES],
+    newYorkHeavyCounties: [...NY_HEAVY_COUNTIES],
+    newYorkModerateCounties: [...NY_MODERATE_COUNTIES],
+    unavailableStates: ['ND', 'NV', 'SD'],
+    entityOnlyStates: ['CO', 'FL', 'GA', 'NY', 'VA'],
     stateCodes: {
       florida: 'FL',
       texas: 'TX',
@@ -334,8 +306,9 @@ export const RATE_SHEET_CONFIG: RateSheetConfig = {
 const PROJECT_TYPE_IDS: readonly ProjectType[] = [
   'Bridge No Rehab',
   'Light Rehab',
-  'Heavy Rehab',
-  'Ground Up Construction',
+  'Standard Rehab',
+  'Super Rehab',
+  'GUC',
 ]
 
 function assertConfigIntegrity(cfg: RateSheetConfig): void {
@@ -365,7 +338,7 @@ export const MAX_LOAN_AMOUNT_USD = RATE_SHEET_CONFIG.limits.maxLoanAmountUsd
 export const MIN_FICO_DEFAULT = RATE_SHEET_CONFIG.fico.defaultMinimum
 
 export const MIN_FICO_GROUND_UP =
-  RATE_SHEET_CONFIG.fico.minimumByProjectType['Ground Up Construction'] ?? MIN_FICO_DEFAULT
+  RATE_SHEET_CONFIG.fico.minimumByProjectType.GUC ?? MIN_FICO_DEFAULT
 
 export const CONFIGURABLE_ADDITIONAL_RATE_PP =
   RATE_SHEET_CONFIG.rates.configurableAdditionalSpreadPp
@@ -404,8 +377,12 @@ for (const tier of ALL_TIERS) {
 
 export const GROUND_UP_ALLOWED_TIERS = RATE_SHEET_CONFIG.groundUp.allowedTierSet
 
-export const NEW_YORK_ADJUSTMENT_COUNTIES: ReadonlySet<string> = new Set(
-  RATE_SHEET_CONFIG.adjustments.newYorkSelectCounties.map((c) => c.toUpperCase()),
+export const NEW_YORK_HEAVY_COUNTIES: ReadonlySet<string> = new Set(
+  RATE_SHEET_CONFIG.adjustments.newYorkHeavyCounties.map((c) => c.toUpperCase()),
+)
+
+export const NEW_YORK_MODERATE_COUNTIES: ReadonlySet<string> = new Set(
+  RATE_SHEET_CONFIG.adjustments.newYorkModerateCounties.map((c) => c.toUpperCase()),
 )
 
 export const FLORIDA_CODE = RATE_SHEET_CONFIG.adjustments.stateCodes.florida

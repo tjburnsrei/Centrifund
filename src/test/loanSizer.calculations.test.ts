@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
-  calculateCashToClose,
+  calculateCashToCoverClosing,
   calculateLoanSizerOutputs,
   calculateMaxDay1Loan,
   calculateMaxRehabFinancing,
   calculateMaxTotalLoan,
+  calculateMonthlyPayment,
   calculateProfitability,
   calculateRequestedMetrics,
 } from '../domain/loanSizer/calculations'
@@ -14,7 +15,6 @@ function baseInputs(
   overrides: Partial<LoanSizerInputs> = {},
 ): LoanSizerInputs {
   return {
-    transactionType: 'purchase',
     estimatedArv: 400_000,
     guarantorExperience: '3-4',
     useChange: false,
@@ -26,13 +26,16 @@ function baseInputs(
     projectBudget: 50_000,
     pointsOrOriginationChoice: 1,
     requestedDay1LoanAmount: 200_000,
-    totalPayoffs: 0,
     permitsApprovedOrImminent: false,
     roofRemoval: false,
     wallRemoval: false,
     nonWarrantableCondo: false,
-    projectTypeOverride: 'Light Rehab',
+    projectTypeOverride: null,
     isTwoToFourUnits: false,
+    brokerPointsPct: 0,
+    underwritingFeeUsd: 0,
+    attorneyFeeUsd: 0,
+    appraisalFeeUsd: 0,
     ...overrides,
   }
 }
@@ -67,7 +70,7 @@ describe('calculateMaxTotalLoan', () => {
       maxArvLtvPct: 75,
     }
     expect(
-      calculateMaxTotalLoan(-100, 50_000, 400_000, caps, 0, 0),
+      calculateMaxTotalLoan(-100, 50_000, 400_000, caps, 'Standard Rehab'),
     ).toBeNull()
   })
 
@@ -78,15 +81,12 @@ describe('calculateMaxTotalLoan', () => {
       maxTotalLtcPct: 90,
       maxArvLtvPct: 75,
     }
-    const day1 = 200_000
-    const rehab = 50_000
     const total = calculateMaxTotalLoan(
       250_000,
       50_000,
       400_000,
       caps,
-      day1,
-      rehab,
+      'Standard Rehab',
     )
     expect(total).not.toBeNull()
     expect(total).toBeLessThanOrEqual(400_000 * 0.75)
@@ -96,35 +96,87 @@ describe('calculateMaxTotalLoan', () => {
 
 describe('calculateRequestedMetrics', () => {
   it('omits LTV when AIV is not positive', () => {
-    const r = calculateRequestedMetrics(0, 50_000, 400_000, 100_000)
+    const r = calculateRequestedMetrics(0, 50_000, 400_000, 100_000, 'Light Rehab')
     expect(r.requestedLtv).toBeNull()
     expect(r.requestedLtc).not.toBeNull()
   })
 
   it('omits LTC when AIV + budget is zero', () => {
-    const r = calculateRequestedMetrics(0, 0, 100_000, 0)
+    const r = calculateRequestedMetrics(0, 0, 100_000, 0, 'Bridge No Rehab')
     expect(r.requestedLtc).toBeNull()
   })
 })
 
-describe('calculateCashToClose', () => {
-  it('treats non-finite payoffs as zero', () => {
-    const { estimatedCashToCoverClosing } = calculateCashToClose(
-      100_000,
-      80_000,
-      Number.NaN,
-    )
-    expect(estimatedCashToCoverClosing).toBe(20_000)
+describe('calculateCashToCoverClosing', () => {
+  it('returns null aiv produces null outputs', () => {
+    const { downPaymentNeeded, cashToCoverClosing } =
+      calculateCashToCoverClosing({
+        aiv: null,
+        requestedDay1: 100_000,
+        brokerPointsPct: 1,
+        underwritingFeeUsd: 1_000,
+        attorneyFeeUsd: 0,
+        appraisalFeeUsd: 0,
+      })
+    expect(downPaymentNeeded).toBeNull()
+    expect(cashToCoverClosing).toBeNull()
+  })
+
+  it('sums down payment, broker points, and fees', () => {
+    const { downPaymentNeeded, cashToCoverClosing } =
+      calculateCashToCoverClosing({
+        aiv: 500_000,
+        requestedDay1: 450_000,
+        brokerPointsPct: 1,
+        underwritingFeeUsd: 1_995,
+        attorneyFeeUsd: 500,
+        appraisalFeeUsd: 750,
+      })
+    expect(downPaymentNeeded).toBe(50_000)
+    expect(cashToCoverClosing).toBe(50_000 + 4_500 + 1_995 + 500 + 750)
+  })
+
+  it('treats negative / NaN fees as zero', () => {
+    const { cashToCoverClosing } = calculateCashToCoverClosing({
+      aiv: 500_000,
+      requestedDay1: 450_000,
+      brokerPointsPct: -1,
+      underwritingFeeUsd: Number.NaN,
+      attorneyFeeUsd: null,
+      appraisalFeeUsd: null,
+    })
+    expect(cashToCoverClosing).toBe(50_000)
+  })
+})
+
+describe('calculateMonthlyPayment', () => {
+  it('returns interest-only monthly on Day 1 loan', () => {
+    expect(calculateMonthlyPayment(450_000, 9)).toBeCloseTo((450_000 * 0.09) / 12, 2)
+  })
+
+  it('returns null when inputs are missing or non-positive', () => {
+    expect(calculateMonthlyPayment(null, 9)).toBeNull()
+    expect(calculateMonthlyPayment(100_000, null)).toBeNull()
+    expect(calculateMonthlyPayment(100_000, 0)).toBeNull()
+    expect(calculateMonthlyPayment(0, 9)).toBeNull()
   })
 })
 
 describe('calculateProfitability', () => {
-  it('returns Ineligible when not eligible', () => {
-    expect(calculateProfitability(false, 500_000, 400_000)).toBe('Ineligible')
+  it('returns Fail when below threshold', () => {
+    expect(calculateProfitability('Light Rehab', 200_000, 50_000, 150_000)).toBe(
+      'Fail',
+    )
   })
 
-  it('returns null when ARV missing', () => {
-    expect(calculateProfitability(true, null, 400_000)).toBeNull()
+  it('passes Bridge without a ratio test', () => {
+    expect(calculateProfitability('Bridge No Rehab', 200_000, 0, 150_000)).toBe(
+      'Pass',
+    )
+  })
+
+  it('returns null when required inputs are missing', () => {
+    expect(calculateProfitability('Light Rehab', null, 50_000, 300_000)).toBeNull()
   })
 })
 
@@ -132,10 +184,10 @@ describe('calculateLoanSizerOutputs', () => {
   it('flags Silver + Ground Up as ineligible', () => {
     const out = calculateLoanSizerOutputs(
       baseInputs({
-        guarantorExperience: '1-2',
-        projectTypeOverride: 'Ground Up Construction',
+        guarantorExperience: '0-2',
         estimatedArv: 600_000,
         projectBudget: 100_000,
+        roofRemoval: true,
       }),
     )
     expect(out.isEligible).toBe(false)
@@ -151,10 +203,17 @@ describe('calculateLoanSizerOutputs', () => {
     expect(out.warnings.some((w) => w.includes('680'))).toBe(true)
   })
 
+  it('flags a FICO band below 680 (mapped to 679) as ineligible', () => {
+    const out = calculateLoanSizerOutputs(baseInputs({ qualifyingFico: 679 }))
+    expect(out.isEligible).toBe(false)
+    expect(out.finalRate).toBeNull()
+    expect(out.warnings.some((w) => w.includes('680'))).toBe(true)
+  })
+
   it('flags Ground Up FICO below 700', () => {
     const out = calculateLoanSizerOutputs(
       baseInputs({
-        projectTypeOverride: 'Ground Up Construction',
+        roofRemoval: true,
         guarantorExperience: '5+',
         qualifyingFico: 690,
         estimatedArv: 800_000,
@@ -163,6 +222,17 @@ describe('calculateLoanSizerOutputs', () => {
     )
     expect(out.isEligible).toBe(false)
     expect(out.warnings.some((w) => w.includes('700'))).toBe(true)
+  })
+
+  it('blocks unavailable states from the logic map', () => {
+    const out = calculateLoanSizerOutputs(
+      baseInputs({
+        propertyState: 'NV',
+      }),
+    )
+    expect(out.isEligible).toBe(false)
+    expect(out.warnings.some((w) => w.includes('not available in NV'))).toBe(true)
+    expect(out.finalRate).toBeNull()
   })
 
   it('warns when requested Day 1 exceeds max', () => {
@@ -178,6 +248,133 @@ describe('calculateLoanSizerOutputs', () => {
     )
     expect(out.isEligible).toBe(false)
     expect(out.warnings.some((w) => w.includes('ARV'))).toBe(true)
+  })
+
+  it('blocks profitability failures using the 1.15 ratio', () => {
+    const out = calculateLoanSizerOutputs(
+      baseInputs({
+        estimatedArv: 300_000,
+        purchasePriceOrAsIsValue: 250_000,
+        projectBudget: 50_000,
+      }),
+    )
+    expect(out.isEligible).toBe(false)
+    expect(out.profitabilityResult).toBe('Fail')
+  })
+
+  it('treats bridge requested financed budget as zero', () => {
+    const out = calculateLoanSizerOutputs(
+      baseInputs({
+        projectBudget: 4_000,
+      }),
+    )
+    expect(out.projectType).toBe('Bridge No Rehab')
+    expect(out.requestedFinancedBudget).toBe(0)
+  })
+
+  it('records the purchase bonus assumption when the scenario qualifies', () => {
+    const out = calculateLoanSizerOutputs(
+      baseInputs({
+        propertyState: 'CA',
+        propertyCounty: null,
+        projectBudget: 20_000,
+        purchasePriceOrAsIsValue: 200_000,
+        estimatedArv: 300_000,
+      }),
+    )
+    expect(
+      out.assumptions.some((a) => a.includes('purchase leverage bonus of 5pp')),
+    ).toBe(true)
+  })
+
+  it('records the GUC permits assumption when permits are approved', () => {
+    const out = calculateLoanSizerOutputs(
+      baseInputs({
+        propertyState: 'CA',
+        guarantorExperience: '5+',
+        roofRemoval: true,
+        permitsApprovedOrImminent: true,
+        purchasePriceOrAsIsValue: 300_000,
+        projectBudget: 150_000,
+        estimatedArv: 700_000,
+      }),
+    )
+    expect(
+      out.assumptions.some((a) =>
+        a.includes('Applied GUC permits initial LTC bonus of 20pp'),
+      ),
+    ).toBe(true)
+  })
+
+  it('warns for loans below 75k guideline', () => {
+    const out = calculateLoanSizerOutputs(
+      baseInputs({
+        requestedDay1LoanAmount: 50_000,
+        projectBudget: 0,
+      }),
+    )
+    expect(out.warnings.some((w) => w.includes('$75,000'))).toBe(true)
+  })
+
+  it('computes purchase down payment and cash-to-close with fees', () => {
+    const out = calculateLoanSizerOutputs(
+      baseInputs({
+        propertyState: 'CA',
+        purchasePriceOrAsIsValue: 250_000,
+        requestedDay1LoanAmount: 180_000,
+        brokerPointsPct: 1,
+        underwritingFeeUsd: 1_995,
+        attorneyFeeUsd: 500,
+        appraisalFeeUsd: 600,
+      }),
+    )
+    expect(out.downPaymentNeeded).toBe(70_000)
+    expect(out.estimatedCashToCoverClosing).toBe(
+      70_000 + 1_800 + 1_995 + 500 + 600,
+    )
+  })
+
+  it('computes monthly payment from requested Day 1 and final rate', () => {
+    const out = calculateLoanSizerOutputs(
+      baseInputs({
+        propertyState: 'CA',
+        requestedDay1LoanAmount: 450_000,
+      }),
+    )
+    expect(out.finalRate).not.toBeNull()
+    expect(out.estimatedMonthlyPayment).toBeCloseTo(
+      (450_000 * ((out.finalRate ?? 0) / 100)) / 12,
+      2,
+    )
+  })
+
+  it('exposes adjusted leverage caps on outputs', () => {
+    const out = calculateLoanSizerOutputs(
+      baseInputs({
+        propertyState: 'CA',
+        guarantorExperience: '5+',
+        purchasePriceOrAsIsValue: 500_000,
+        projectBudget: 100_000,
+        estimatedArv: 800_000,
+      }),
+    )
+    expect(out.maxInitialLtcPct).not.toBeNull()
+    expect(out.maxTotalLtcPct).not.toBeNull()
+    expect(out.maxArvLtvPct).not.toBeNull()
+  })
+
+  it('applies Nassau county as the moderate negative adjustment', () => {
+    const out = calculateLoanSizerOutputs(
+      baseInputs({
+        propertyState: 'NY',
+        propertyCounty: 'Nassau',
+      }),
+    )
+    expect(
+      out.assumptions.some((a) =>
+        a.includes('Florida / Texas / Nassau / Suffolk'),
+      ),
+    ).toBe(true)
   })
 
   it('handles missing project budget for rehab types', () => {
@@ -200,6 +397,9 @@ describe('calculateLoanSizerOutputs', () => {
       out.requestedLtv,
       out.requestedLtc,
       out.requestedLtarv,
+      out.estimatedMonthlyPayment,
+      out.downPaymentNeeded,
+      out.estimatedCashToCoverClosing,
     ]
     for (const n of nums) {
       if (n !== null) {
@@ -211,11 +411,11 @@ describe('calculateLoanSizerOutputs', () => {
   it('includes liquidity for Ground Up', () => {
     const out = calculateLoanSizerOutputs(
       baseInputs({
-        projectTypeOverride: 'Ground Up Construction',
         guarantorExperience: '5+',
         qualifyingFico: 720,
         estimatedArv: 900_000,
         projectBudget: 150_000,
+        roofRemoval: true,
       }),
     )
     expect(out.liquidityRequired).not.toBeNull()

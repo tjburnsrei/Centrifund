@@ -40,7 +40,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
           ref={ref}
           id={inputId}
           type="text"
-          inputMode="numeric"
+          inputMode="decimal"
           autoComplete="off"
           disabled={disabled}
           aria-invalid={error ? true : undefined}
@@ -60,7 +60,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
               onValueChange(null)
               return
             }
-            const n = Number.parseInt(raw, 10)
+            const n = Number.parseFloat(raw)
             if (Number.isNaN(n)) {
               onValueChange(null)
               return

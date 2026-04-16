@@ -58,8 +58,9 @@ export const US_STATE_CODES = [
 const projectTypeSchema = z.enum([
   'Bridge No Rehab',
   'Light Rehab',
-  'Heavy Rehab',
-  'Ground Up Construction',
+  'Standard Rehab',
+  'Super Rehab',
+  'GUC',
 ])
 
 const nullableCurrency = z
@@ -72,20 +73,23 @@ const nullableCurrency = z
   })
   .refine((v) => v === null || v >= 0, 'Must be zero or greater')
 
-const nullableInt = z
+const nullablePercent = z
   .union([z.number(), z.null(), z.undefined()])
   .transform((v) => {
     if (v === undefined || v === null || Number.isNaN(v)) {
       return null
     }
-    return Math.round(v)
+    return v
   })
+  .refine(
+    (v) => v === null || (v >= 0 && v <= 10),
+    'Must be between 0 and 10',
+  )
 
 export const loanSizerFormSchema = z
   .object({
-    transactionType: z.enum(['purchase', 'rateTermRefi', 'cashOutRefi']),
     estimatedArv: nullableCurrency,
-    guarantorExperience: z.enum(['1-2', '3-4', '5+']),
+    guarantorExperience: z.enum(['0-2', '3-4', '5+']),
     useChange: z.boolean(),
     propertyState: z
       .string()
@@ -101,10 +105,13 @@ export const loanSizerFormSchema = z
         const t = s.trim()
         return t === '' ? null : t
       }),
-    qualifyingFico: nullableInt.refine(
-      (v) => v === null || (v >= 300 && v <= 850),
-      'FICO must be between 300 and 850',
-    ),
+    ficoBand: z.enum([
+      'below680',
+      '680-699',
+      '700-719',
+      '720-739',
+      '740+',
+    ]),
     purchasePriceOrAsIsValue: nullableCurrency,
     citizenship: z.enum(['domestic', 'foreignNational']),
     projectBudget: nullableCurrency,
@@ -112,7 +119,6 @@ export const loanSizerFormSchema = z
       .union([z.literal(1), z.literal(0.5), z.literal(0), z.null(), z.undefined()])
       .transform((v) => (v === undefined ? null : v)),
     requestedDay1LoanAmount: nullableCurrency,
-    totalPayoffs: nullableCurrency,
     permitsApprovedOrImminent: z.boolean().optional(),
     roofRemoval: z.boolean().optional(),
     wallRemoval: z.boolean().optional(),
@@ -124,6 +130,10 @@ export const loanSizerFormSchema = z
         return v as ProjectType
       }),
     isTwoToFourUnits: z.boolean().optional(),
+    brokerPointsPct: nullablePercent,
+    underwritingFeeUsd: nullableCurrency,
+    attorneyFeeUsd: nullableCurrency,
+    appraisalFeeUsd: nullableCurrency,
   })
 
 export type LoanSizerFormValues = z.infer<typeof loanSizerFormSchema>

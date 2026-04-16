@@ -2,6 +2,7 @@ import {
   GLOBAL_ASSUMPTIONS,
   GROUND_UP_LIQUIDITY_CONSTRUCTION_BUDGET_PCT,
   MAX_LOAN_AMOUNT_USD,
+  RATE_SHEET_CONFIG,
 } from './constants'
 import type {
   LeverageCaps,
@@ -18,7 +19,9 @@ import {
   getApplicableRateAddOns,
   getBaseLeverage,
   getBaseRate,
+  getGucPermitsInitialLtvBonusPp,
   getMostRestrictiveNegativeAdjustment,
+  getPositiveLeverageBonusPp,
   isGroundUpEligibleForTier,
   minFicoForProject,
   negativeAdjustmentLabel,
@@ -33,6 +36,14 @@ function safeDiv(n: number, d: number): number | null {
 function finiteOrNull(n: number): number | null {
   if (!Number.isFinite(n)) return null
   return n
+}
+
+function calculateFinancedBudget(
+  projectType: ProjectType | null,
+  budget: number,
+): number {
+  if (projectType === 'Bridge No Rehab') return 0
+  return Math.max(0, Number.isFinite(budget) ? budget : 0)
 }
 
 export function calculateMaxDay1Loan(
@@ -75,8 +86,7 @@ export function calculateMaxTotalLoan(
   budget: number,
   arv: number | null,
   caps: LeverageCaps,
-  maxDay1Loan: number | null,
-  maxRehabFromLtc: number | null,
+  projectType: ProjectType | null,
 ): number | null {
   if (
     !Number.isFinite(aiv) ||
@@ -89,6 +99,12 @@ export function calculateMaxTotalLoan(
 
   const parts: number[] = []
 
+  const financedBudget = calculateFinancedBudget(projectType, budget)
+
+  if (caps.maxInitialLtcPct !== null) {
+    const v = aiv * (caps.maxInitialLtcPct / 100) + financedBudget
+    if (Number.isFinite(v)) parts.push(v)
+  }
   if (caps.maxTotalLtcPct !== null) {
     const v = (aiv + budget) * (caps.maxTotalLtcPct / 100)
     if (Number.isFinite(v)) parts.push(v)
@@ -102,13 +118,11 @@ export function calculateMaxTotalLoan(
     const v = arv * (caps.maxArvLtvPct / 100)
     if (Number.isFinite(v)) parts.push(v)
   }
-  if (maxDay1Loan !== null && maxRehabFromLtc !== null) {
-    const v = maxDay1Loan + maxRehabFromLtc
-    if (Number.isFinite(v)) parts.push(v)
-  }
-
   if (parts.length === 0) {
-    if (maxDay1Loan !== null) return finiteOrNull(Math.min(maxDay1Loan, MAX_LOAN_AMOUNT_USD))
+    if (caps.maxInitialLtcPct !== null) {
+      const maxDay1 = aiv * (caps.maxInitialLtcPct / 100)
+      return finiteOrNull(Math.min(maxDay1, MAX_LOAN_AMOUNT_USD))
+    }
     return null
   }
 
@@ -122,6 +136,7 @@ export function calculateRequestedMetrics(
   budget: number,
   arv: number,
   requestedDay1: number,
+  projectType: ProjectType | null,
 ): {
   requestedFinancedBudget: number
   requestedTotalLoan: number
@@ -130,7 +145,7 @@ export function calculateRequestedMetrics(
   requestedLtarv: number | null
 } {
   const b = Number.isFinite(budget) ? budget : 0
-  const requestedFinancedBudget = Math.max(0, b)
+  const requestedFinancedBudget = calculateFinancedBudget(projectType, b)
   const requestedTotalLoan = requestedDay1 + requestedFinancedBudget
   const aivOk = Number.isFinite(aiv) && aiv > 0
   const costBasis = aiv + b
@@ -147,50 +162,102 @@ export function calculateRequestedMetrics(
   }
 }
 
-export function calculateCashToClose(
-  aiv: number,
-  requestedDay1: number,
-  totalPayoffs: number,
-): { downPaymentNeeded: number; estimatedCashToCoverClosing: number } {
-  const a = Number.isFinite(aiv) ? aiv : 0
-  const d1 = Number.isFinite(requestedDay1) ? requestedDay1 : 0
-  const po = Number.isFinite(totalPayoffs) ? totalPayoffs : 0
-  const downPaymentNeeded = Math.max(0, a - d1)
-  const estimatedCashToCoverClosing = downPaymentNeeded + Math.max(0, po)
-  return { downPaymentNeeded, estimatedCashToCoverClosing }
-}
-
 export function calculateLiquidityRequirement(
   projectType: ProjectType | null,
-  estimatedCashToCoverClosing: number,
+  downPaymentNeeded: number,
   constructionBudget: number,
 ): number | null {
-  if (projectType !== 'Ground Up Construction') return null
-  const ctc = Number.isFinite(estimatedCashToCoverClosing)
-    ? estimatedCashToCoverClosing
-    : 0
+  if (projectType !== 'GUC') return null
+  const cash = Number.isFinite(downPaymentNeeded) ? downPaymentNeeded : 0
   const extra =
     Math.max(0, Number.isFinite(constructionBudget) ? constructionBudget : 0) *
     GROUND_UP_LIQUIDITY_CONSTRUCTION_BUDGET_PCT
-  return finiteOrNull(ctc + extra)
+  return finiteOrNull(cash + extra)
 }
 
 export function calculateProfitability(
-  isEligible: boolean,
+  projectType: ProjectType | null,
+  aiv: number | null,
+  budget: number | null,
   arv: number | null,
-  requestedTotalLoan: number | null,
-): ProfitabilityResult | null {
-  if (!isEligible) return 'Ineligible'
+): Exclude<ProfitabilityResult, 'Ineligible'> | null {
   if (
+    projectType === null ||
+    aiv === null ||
+    budget === null ||
     arv === null ||
-    requestedTotalLoan === null ||
+    !Number.isFinite(aiv) ||
+    aiv <= 0 ||
+    !Number.isFinite(budget) ||
+    budget < 0 ||
     !Number.isFinite(arv) ||
-    arv <= 0 ||
-    !Number.isFinite(requestedTotalLoan)
+    arv <= 0
   ) {
     return null
   }
-  return arv > requestedTotalLoan ? 'Pass' : 'Review'
+  if (projectType === 'Bridge No Rehab') return 'Pass'
+  return arv / (aiv + budget) >= 1.15 ? 'Pass' : 'Fail'
+}
+
+function nonNegative(n: number | null | undefined): number {
+  if (n === null || n === undefined || !Number.isFinite(n)) return 0
+  return Math.max(0, n)
+}
+
+/**
+ * Estimated monthly interest-only payment on the requested Day 1 loan.
+ * Returns `null` when either requested Day 1 or rate is missing.
+ */
+export function calculateMonthlyPayment(
+  requestedDay1Loan: number | null,
+  annualRatePct: number | null,
+): number | null {
+  if (
+    requestedDay1Loan === null ||
+    annualRatePct === null ||
+    !Number.isFinite(requestedDay1Loan) ||
+    !Number.isFinite(annualRatePct) ||
+    requestedDay1Loan <= 0 ||
+    annualRatePct <= 0
+  ) {
+    return null
+  }
+  const monthly = (requestedDay1Loan * (annualRatePct / 100)) / 12
+  return finiteOrNull(monthly)
+}
+
+/**
+ * Cash the borrower brings to close on a purchase:
+ *   down payment + broker points (as pct of Day 1) + flat fees.
+ */
+export function calculateCashToCoverClosing(params: {
+  aiv: number | null
+  requestedDay1: number
+  brokerPointsPct: number | null
+  underwritingFeeUsd: number | null
+  attorneyFeeUsd: number | null
+  appraisalFeeUsd: number | null
+}): { downPaymentNeeded: number | null; cashToCoverClosing: number | null } {
+  const { aiv, requestedDay1 } = params
+  if (aiv === null || !Number.isFinite(aiv)) {
+    return { downPaymentNeeded: null, cashToCoverClosing: null }
+  }
+  const downPaymentNeeded = Math.max(0, aiv - requestedDay1)
+  const brokerDollars =
+    nonNegative(params.brokerPointsPct) > 0
+      ? (nonNegative(params.brokerPointsPct) / 100) *
+        nonNegative(requestedDay1)
+      : 0
+  const cashToCoverClosing =
+    downPaymentNeeded +
+    brokerDollars +
+    nonNegative(params.underwritingFeeUsd) +
+    nonNegative(params.attorneyFeeUsd) +
+    nonNegative(params.appraisalFeeUsd)
+  return {
+    downPaymentNeeded,
+    cashToCoverClosing: finiteOrNull(cashToCoverClosing),
+  }
 }
 
 export function calculateLoanSizerOutputs(
@@ -208,7 +275,6 @@ export function calculateLoanSizerOutputs(
   const budget = inputs.projectBudget
   const fico = inputs.qualifyingFico
   const requestedDay1Raw = inputs.requestedDay1LoanAmount
-  const payoffs = inputs.totalPayoffs ?? 0
   const permits = inputs.permitsApprovedOrImminent ?? false
   const structural = Boolean(inputs.roofRemoval || inputs.wallRemoval)
   const condo = inputs.nonWarrantableCondo ?? false
@@ -217,7 +283,9 @@ export function calculateLoanSizerOutputs(
   const pointsChoice = inputs.pointsOrOriginationChoice ?? 1
 
   if (projectType === null) {
-    blocking.push('Select a project / rehab type to size the loan.')
+    blocking.push(
+      'Project type could not be auto-classified from rehab ratio and GUC flags.',
+    )
   }
 
   if (tier === null) {
@@ -229,15 +297,16 @@ export function calculateLoanSizerOutputs(
   }
 
   if (
-    projectType === 'Ground Up Construction' &&
+    projectType === 'GUC' &&
     tier &&
     !isGroundUpEligibleForTier(tier)
   ) {
     blocking.push(
-      'Ground Up Construction is not available for the Silver experience tier per program rules.',
+      'GUC is not available for the Silver experience tier per program rules.',
     )
   }
 
+  const propertyState = inputs.propertyState.trim().toUpperCase()
   const minFico = minFicoForProject(projectType)
   if (fico !== null && fico < minFico) {
     blocking.push(
@@ -250,6 +319,10 @@ export function calculateLoanSizerOutputs(
     assumptions.push(
       `Applied single non-cumulative leverage adjustment: ${negativeAdjustmentLabel(neg.kind)}.`,
     )
+  }
+
+  if (RATE_SHEET_CONFIG.adjustments.unavailableStates.includes(propertyState)) {
+    blocking.push(`This program is not available in ${propertyState}.`)
   }
 
   let baseLeverage: LeverageCaps | null = null
@@ -271,19 +344,37 @@ export function calculateLoanSizerOutputs(
     }
   }
 
+  const positiveBonusPp = getPositiveLeverageBonusPp(
+    inputs,
+    tier,
+    projectType,
+    baseLeverage,
+  )
+  const gucPermitsInitialLtvBonusPp = getGucPermitsInitialLtvBonusPp(
+    projectType,
+    tier,
+    permits,
+  )
+
   const adjustedCaps =
     baseLeverage !== null
       ? applyLeverageAdjustments(
           baseLeverage,
+          positiveBonusPp,
           neg.leverageReductionPercentagePoints,
+          gucPermitsInitialLtvBonusPp,
           condo,
         )
       : null
 
-  if (structural && !permits) {
-    warnings.push(
-      'Structural alterations are indicated without approved/imminent permits; initial LTC uses the lower tier.',
+  if (projectType === 'GUC' && permits && gucPermitsInitialLtvBonusPp > 0) {
+    assumptions.push(
+      `Applied GUC permits initial LTC bonus of ${gucPermitsInitialLtvBonusPp}pp.`,
     )
+  }
+
+  if (positiveBonusPp > 0) {
+    assumptions.push(`Applied purchase leverage bonus of ${positiveBonusPp}pp.`)
   }
 
   const budgetNum = budget ?? 0
@@ -309,17 +400,8 @@ export function calculateLoanSizerOutputs(
     blocking.push('Enter qualifying FICO to confirm eligibility.')
   }
 
-  const maxDay1Loan =
-    aiv !== null && aiv > 0 && adjustedCaps
-      ? calculateMaxDay1Loan(aiv, adjustedCaps.maxInitialLtcPct)
-      : null
-
-  const maxRehabFin =
-    adjustedCaps && budget !== null && budget >= 0
-      ? calculateMaxRehabFinancing(budget, adjustedCaps.maxRehabLtcPct)
-      : null
-
   const budgetForCalc = budget ?? 0
+  const financedBudget = calculateFinancedBudget(projectType, budgetForCalc)
 
   const maxTotalLoan =
     aiv !== null && aiv > 0 && budget !== null && adjustedCaps
@@ -328,17 +410,22 @@ export function calculateLoanSizerOutputs(
           budgetForCalc,
           arv,
           adjustedCaps,
-          maxDay1Loan,
-          maxRehabFin,
+          projectType,
         )
-      : maxDay1Loan !== null
-        ? finiteOrNull(Math.min(maxDay1Loan, MAX_LOAN_AMOUNT_USD))
-        : null
+      : null
+
+  const uncappedMaxDay1 =
+    aiv !== null && aiv > 0 && adjustedCaps
+      ? calculateMaxDay1Loan(aiv, adjustedCaps.maxInitialLtcPct)
+      : null
+
+  const maxDay1Loan =
+    uncappedMaxDay1 !== null && maxTotalLoan !== null
+      ? Math.min(uncappedMaxDay1, Math.max(0, maxTotalLoan - financedBudget))
+      : uncappedMaxDay1
 
   const maxFinancedBudget =
-    maxTotalLoan !== null && maxDay1Loan !== null
-      ? finiteOrNull(Math.max(0, maxTotalLoan - maxDay1Loan))
-      : null
+    maxTotalLoan !== null ? financedBudget : null
 
   const requestedDay1 = Math.max(0, requestedDay1Raw ?? 0)
   const req =
@@ -348,14 +435,26 @@ export function calculateLoanSizerOutputs(
           budget ?? 0,
           arv !== null && arv > 0 ? arv : 0,
           requestedDay1,
+          projectType,
         )
       : {
-          requestedFinancedBudget: Math.max(0, budgetNum),
-          requestedTotalLoan: requestedDay1 + Math.max(0, budgetNum),
+          requestedFinancedBudget: calculateFinancedBudget(projectType, budgetNum),
+          requestedTotalLoan:
+            requestedDay1 + calculateFinancedBudget(projectType, budgetNum),
           requestedLtv: null as number | null,
           requestedLtc: null as number | null,
           requestedLtarv: null as number | null,
         }
+
+  const profitabilityBase = calculateProfitability(
+    projectType,
+    aiv,
+    budget,
+    arv,
+  )
+  if (profitabilityBase === 'Fail') {
+    blocking.push('Profitability test failed.')
+  }
 
   if (
     maxDay1Loan !== null &&
@@ -373,21 +472,20 @@ export function calculateLoanSizerOutputs(
     )
   }
 
-  const { downPaymentNeeded, estimatedCashToCoverClosing } =
-    aiv !== null
-      ? calculateCashToClose(aiv, requestedDay1, payoffs)
-      : {
-          downPaymentNeeded: null as number | null,
-          estimatedCashToCoverClosing: null as number | null,
-        }
+  const { downPaymentNeeded, cashToCoverClosing } = calculateCashToCoverClosing(
+    {
+      aiv,
+      requestedDay1,
+      brokerPointsPct: inputs.brokerPointsPct ?? null,
+      underwritingFeeUsd: inputs.underwritingFeeUsd ?? null,
+      attorneyFeeUsd: inputs.attorneyFeeUsd ?? null,
+      appraisalFeeUsd: inputs.appraisalFeeUsd ?? null,
+    },
+  )
 
   const liquidityRequired =
-    downPaymentNeeded !== null && estimatedCashToCoverClosing !== null
-      ? calculateLiquidityRequirement(
-          projectType,
-          estimatedCashToCoverClosing,
-          budgetNum,
-        )
+    downPaymentNeeded !== null
+      ? calculateLiquidityRequirement(projectType, downPaymentNeeded, budgetNum)
       : null
 
   let baseRate: number | null = null
@@ -398,11 +496,7 @@ export function calculateLoanSizerOutputs(
   ) {
     baseRate = getBaseRate(tier, pointsChoice)
     if (baseRate !== null) {
-      const addOns = getApplicableRateAddOns(
-        inputs.transactionType,
-        projectType,
-        tier,
-      )
+      const addOns = getApplicableRateAddOns(projectType, tier)
       finalRate = applyFinalRateAdjustments(baseRate, addOns)
     }
   }
@@ -414,17 +508,29 @@ export function calculateLoanSizerOutputs(
   const lenderFees =
     projectType !== null ? selectLenderFeeUsd(projectType, isMulti) : null
 
+  if (req.requestedTotalLoan > 0 && req.requestedTotalLoan < 75_000) {
+    warnings.push('Requested loan amount is below the $75,000 guideline.')
+  }
+
   const isEligible =
     blocking.length === 0 &&
     adjustedCaps !== null &&
     (adjustedCaps.maxInitialLtcPct !== null ||
       projectType === 'Bridge No Rehab')
 
-  const profitabilityResult = calculateProfitability(
-    isEligible,
-    arv,
-    req.requestedTotalLoan,
+  if (!isEligible) {
+    finalRate = null
+  }
+
+  const estimatedMonthlyPayment = calculateMonthlyPayment(
+    requestedDay1 > 0 ? requestedDay1 : null,
+    finalRate,
   )
+
+  const profitabilityResult =
+    !isEligible && profitabilityBase !== 'Fail'
+      ? 'Ineligible'
+      : profitabilityBase
 
   const maxLtv =
     maxDay1Loan !== null && aiv !== null && aiv > 0
@@ -457,8 +563,12 @@ export function calculateLoanSizerOutputs(
     requestedLtv: req.requestedLtv,
     requestedLtc: req.requestedLtc,
     requestedLtarv: req.requestedLtarv,
+    maxInitialLtcPct: adjustedCaps?.maxInitialLtcPct ?? null,
+    maxTotalLtcPct: adjustedCaps?.maxTotalLtcPct ?? null,
+    maxArvLtvPct: adjustedCaps?.maxArvLtvPct ?? null,
     downPaymentNeeded,
-    estimatedCashToCoverClosing,
+    estimatedCashToCoverClosing: cashToCoverClosing,
+    estimatedMonthlyPayment,
     liquidityRequired,
     minFico,
     maxLoanAmount: MAX_LOAN_AMOUNT_USD,
