@@ -7,7 +7,7 @@ describe('LoanSizer', () => {
   it('renders the single-column section stack', () => {
     render(<LoanSizer />)
     expect(
-      screen.getByRole('heading', { name: /fix & flip loan sizer/i }),
+      screen.getByRole('heading', { name: /fix and flip loan sizer/i }),
     ).toBeInTheDocument()
     expect(screen.getByLabelText(/purchase price/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/rehab budget/i)).toBeInTheDocument()
@@ -15,6 +15,7 @@ describe('LoanSizer', () => {
     expect(screen.getByLabelText(/qualifying fico/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/day 1 loan amount/i)).toBeInTheDocument()
     expect(screen.queryByLabelText(/transaction type/i)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/origination points/i)).not.toBeInTheDocument()
   })
 
   it('enables the NY county dropdown only when state is NY', async () => {
@@ -93,11 +94,9 @@ describe('LoanSizer', () => {
     expect(btn).toBeDisabled()
   })
 
-  it('renders assumptions and messages sections', () => {
+  it('renders assumptions section and hides messages when no alerts', () => {
     render(<LoanSizer />)
-    expect(
-      screen.getByRole('region', { name: /^messages$/i }),
-    ).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: /^messages$/i })).toBeNull()
     expect(
       screen.getByRole('heading', { name: /^assumptions$/i }),
     ).toBeInTheDocument()

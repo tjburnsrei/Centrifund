@@ -57,20 +57,22 @@ export function AllowableLeverageCard({ outputs }: OutputCardsProps) {
 }
 
 export function MessagesCard({ outputs }: OutputCardsProps) {
+  if (outputs.warnings.length === 0) return null
+
   return (
-    <SectionCard id="messages" title="Messages">
-      {outputs.warnings.length > 0 ? (
-        <ul
-          className="list-inside list-disc space-y-1 text-sm text-danger"
-          role="list"
-        >
-          {outputs.warnings.map((w, i) => (
-            <li key={`${i}-${w.slice(0, 48)}`}>{w}</li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-sm text-text-secondary">No alerts.</p>
-      )}
+    <SectionCard
+      id="messages"
+      title="Messages"
+      className="border-danger/35 bg-danger/5"
+    >
+      <ul
+        className="list-inside list-disc space-y-1 text-xs text-danger"
+        role="list"
+      >
+        {outputs.warnings.map((w, i) => (
+          <li key={`${i}-${w.slice(0, 48)}`}>{w}</li>
+        ))}
+      </ul>
     </SectionCard>
   )
 }

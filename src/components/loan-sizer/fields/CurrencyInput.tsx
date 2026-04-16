@@ -20,8 +20,14 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
     { label, description, error, value, onValueChange, className, inputId, disabled, ...rest },
     ref,
   ) {
+    const numberFormatter = new Intl.NumberFormat('en-US', {
+      maximumFractionDigits: 0,
+      minimumFractionDigits: 0,
+    })
     const display =
-      value === null || Number.isNaN(value) ? '' : String(Math.round(value))
+      value === null || Number.isNaN(value)
+        ? ''
+        : numberFormatter.format(Math.round(value))
 
     return (
       <div className={cn('flex flex-col gap-1', className)}>

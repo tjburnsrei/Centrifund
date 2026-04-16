@@ -29,24 +29,21 @@ export function LoanSizer() {
       ? outputs.warnings[0] ??
         'Complete the deal inputs above to see your max Day 1 loan.'
       : undefined
+  const hasAlerts = outputs.warnings.length > 0
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 md:px-6">
-      <header className="mb-8 border-b border-border pb-6">
+    <div className="mx-auto w-full max-w-[1500px] px-3 py-5 md:px-4">
+      <header className="mb-5 border-b border-border pb-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-brand">
           Centrifund
         </p>
         <h1 className="mt-1 text-2xl font-bold text-text-primary md:text-3xl">
-          Fix &amp; Flip loan sizer
+          Fix and Flip Loan Sizer
         </h1>
-        <p className="mt-2 max-w-2xl text-sm text-text-secondary">
-          Indicative sizing from program rules configured for Wholesale
-          (Tier 1) Fix &amp; Flip.
-        </p>
       </header>
 
       <div
-        className="flex flex-col gap-6"
+        className="flex flex-col gap-4"
         aria-live="polite"
         aria-relevant="text"
       >
@@ -76,7 +73,7 @@ export function LoanSizer() {
           />
         </SectionCard>
 
-        <MessagesCard outputs={outputs} />
+        {hasAlerts ? <MessagesCard outputs={outputs} /> : null}
 
         <CalculationsCard outputs={outputs} />
 

@@ -26,10 +26,10 @@ export function SectionCard({
       aria-labelledby={headingId}
       role="region"
     >
-      <div className="border-b border-border bg-surface-muted/50 px-4 py-3 md:px-5">
+      <div className="border-b border-border bg-surface-muted/45 px-3 py-2 md:px-4">
         <h2
           id={headingId}
-          className="text-base font-semibold text-text-primary"
+          className="text-sm font-semibold text-text-primary md:text-base"
         >
           {title}
         </h2>
@@ -39,7 +39,7 @@ export function SectionCard({
           </p>
         ) : null}
       </div>
-      <div className="space-y-4 p-4 md:p-5">{children}</div>
+      <div className="space-y-3 p-3 md:p-4">{children}</div>
     </section>
   )
 }

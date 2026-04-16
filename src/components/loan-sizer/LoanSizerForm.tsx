@@ -3,7 +3,6 @@ import {
   NEW_YORK_CODE,
   RATE_SHEET_CONFIG,
   US_STATE_CODES,
-  originationSelectOptions,
   type LoanSizerFormValues,
 } from '../../domain/loanSizer'
 import { FICO_BAND_OPTIONS } from '../../hooks/useLoanSizer'
@@ -38,14 +37,12 @@ export interface LoanSizerFormProps {
 export function LoanSizerForm({ form }: LoanSizerFormProps) {
   const { control, formState, setValue } = form
   const e = formState.errors
-  const [roofRemoval, wallRemoval, propertyState, ficoBand] = useWatch({
+  const [roofRemoval, wallRemoval, propertyState] = useWatch({
     control,
-    name: ['roofRemoval', 'wallRemoval', 'propertyState', 'ficoBand'],
+    name: ['roofRemoval', 'wallRemoval', 'propertyState'],
   })
   const showPermits = Boolean(roofRemoval || wallRemoval)
   const countyEnabled = propertyState === NEW_YORK_CODE
-  const ficoDescription =
-    FICO_BAND_OPTIONS.find((o) => o.value === ficoBand)?.description ?? ''
 
   return (
     <div className="flex flex-col gap-4">
@@ -112,7 +109,6 @@ export function LoanSizerForm({ form }: LoanSizerFormProps) {
                 <SelectInput
                   inputId="experience"
                   label="Guarantor experience"
-                  description="Completed fix-and-flip projects drive the tier."
                   options={[
                     { value: '0-2', label: '0–2 (Silver tier)' },
                     { value: '3-4', label: '3–4 (Gold tier)' },
@@ -129,7 +125,6 @@ export function LoanSizerForm({ form }: LoanSizerFormProps) {
                 <SelectInput
                   inputId="ficoBand"
                   label="Qualifying FICO"
-                  description={ficoDescription}
                   options={FICO_SELECT_OPTIONS}
                   {...field}
                 />
@@ -151,32 +146,6 @@ export function LoanSizerForm({ form }: LoanSizerFormProps) {
               )}
             />
           </div>
-          <Controller
-            name="pointsOrOriginationChoice"
-            control={control}
-            render={({ field }) => (
-              <SelectInput
-                inputId="origination"
-                label="Origination points"
-                options={[...originationSelectOptions()]}
-                value={
-                  field.value === null || field.value === undefined
-                    ? ''
-                    : String(field.value)
-                }
-                onChange={(ev) => {
-                  const v = ev.target.value
-                  if (v === '') field.onChange(null)
-                  else if (v === '1') field.onChange(1)
-                  else if (v === '0.5') field.onChange(0.5)
-                  else field.onChange(0)
-                }}
-                onBlur={field.onBlur}
-                name={field.name}
-                ref={field.ref}
-              />
-            )}
-          />
         </fieldset>
       </SectionCard>
 
@@ -233,26 +202,26 @@ export function LoanSizerForm({ form }: LoanSizerFormProps) {
         </div>
       </SectionCard>
 
-      <details className="group rounded-xl border border-border bg-white shadow-sm">
-        <summary className="cursor-pointer list-none px-4 py-3 md:px-5">
+      <details className="group rounded-lg border border-border/80 bg-white shadow-sm">
+        <summary className="cursor-pointer list-none px-3 py-2 md:px-4">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-base font-semibold text-text-primary">
+              <p className="text-sm font-semibold text-text-primary">
                 Advanced scenarios
               </p>
-              <p className="mt-1 text-xs text-text-secondary">
+              <p className="mt-0.5 text-[11px] text-text-secondary">
                 Only needed for structural/GUC deals and condo adjustments.
               </p>
             </div>
-            <span className="text-xs font-medium text-text-secondary group-open:hidden">
+            <span className="text-[11px] font-medium text-text-secondary group-open:hidden">
               Show
             </span>
-            <span className="hidden text-xs font-medium text-text-secondary group-open:inline">
+            <span className="hidden text-[11px] font-medium text-text-secondary group-open:inline">
               Hide
             </span>
           </div>
         </summary>
-        <div className="space-y-4 border-t border-border px-4 py-4 md:px-5">
+        <div className="space-y-3 border-t border-border px-3 py-3 md:px-4">
           <Controller
             name="roofRemoval"
             control={control}
