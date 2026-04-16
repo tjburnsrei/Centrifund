@@ -11,6 +11,7 @@ export interface SelectInputProps
   extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'size'> {
   label: string
   description?: string
+  inlineDescription?: string
   error?: string
   options: readonly SelectOption[]
   inputId: string
@@ -21,6 +22,7 @@ export const SelectInput = forwardRef<HTMLSelectElement, SelectInputProps>(
     {
       label,
       description,
+      inlineDescription,
       error,
       options,
       className,
@@ -34,9 +36,14 @@ export const SelectInput = forwardRef<HTMLSelectElement, SelectInputProps>(
       <div className={cn('flex flex-col gap-1', className)}>
         <label
           htmlFor={inputId}
-          className="text-sm font-medium text-text-primary"
+          className="flex items-baseline gap-2 text-sm font-medium text-text-primary"
         >
           {label}
+          {inlineDescription ? (
+            <span className="text-[11px] font-normal text-text-secondary">
+              {inlineDescription}
+            </span>
+          ) : null}
         </label>
         {description ? (
           <p id={`${inputId}-desc`} className="text-xs text-text-secondary">

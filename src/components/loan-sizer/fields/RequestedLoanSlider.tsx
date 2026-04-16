@@ -5,6 +5,7 @@ import { formatCurrency, formatPercent } from '../../../domain/loanSizer'
 export interface RequestedLoanSliderProps {
   label: string
   description?: string
+  showHeader?: boolean
   value: number | null
   onValueChange: (value: number) => void
   min: number
@@ -20,6 +21,7 @@ const SLIDER_STEP_USD = 1_000
 export function RequestedLoanSlider({
   label,
   description,
+  showHeader = true,
   value,
   onValueChange,
   min,
@@ -45,31 +47,34 @@ export function RequestedLoanSlider({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <label
-          htmlFor={id}
-          className="text-sm font-medium text-text-primary"
-        >
-          {label}
-        </label>
-        <span
-          className="text-base font-semibold tabular-nums text-text-primary"
-          aria-live="polite"
-        >
-          {formatCurrency(normalizedValue)}
-          {percentOfPurchase !== null ? (
-            <span className="ml-2 text-xs font-medium text-text-secondary">
-              {formatPercent(percentOfPurchase, 1)} of purchase
-            </span>
-          ) : null}
-        </span>
-      </div>
-      {description ? (
+      {showHeader ? (
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <label
+            htmlFor={id}
+            className="text-sm font-medium text-text-primary"
+          >
+            {label}
+          </label>
+          <span
+            className="text-base font-semibold tabular-nums text-text-primary"
+            aria-live="polite"
+          >
+            {formatCurrency(normalizedValue)}
+            {percentOfPurchase !== null ? (
+              <span className="ml-2 text-xs font-medium text-text-secondary">
+                {formatPercent(percentOfPurchase, 1)} of purchase
+              </span>
+            ) : null}
+          </span>
+        </div>
+      ) : null}
+      {showHeader && description ? (
         <p className="text-xs text-text-secondary">{description}</p>
       ) : null}
       <input
         id={id}
         type="range"
+        aria-label={label}
         min={normalizedMin}
         max={effectiveMax}
         step={step}

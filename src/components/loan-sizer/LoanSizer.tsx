@@ -1,5 +1,6 @@
 import { Controller } from 'react-hook-form'
 import { useLoanSizer } from '../../hooks/useLoanSizer'
+import { formatCurrency } from '../../domain/loanSizer/formatters'
 import {
   LoanSizerClosingCostsForm,
   LoanSizerForm,
@@ -30,6 +31,9 @@ export function LoanSizer() {
         'Complete the deal inputs above to see your max Day 1 loan.'
       : undefined
   const hasAlerts = outputs.warnings.length > 0
+  const requestedLoanTitle = `Requested purchase loan - ${formatCurrency(
+    values.requestedDay1LoanAmount,
+  )}`
 
   return (
     <div className="mx-auto w-full max-w-[1500px] px-3 py-5 md:px-4">
@@ -53,8 +57,7 @@ export function LoanSizer() {
 
         <SectionCard
           id="requested-loan"
-          title="Requested purchase loan"
-          description="Slide to your desired Day 1 loan. The slider is capped at the maximum allowed by your inputs."
+          title={requestedLoanTitle}
         >
           <Controller
             name="requestedDay1LoanAmount"
@@ -62,6 +65,7 @@ export function LoanSizer() {
             render={({ field }) => (
               <RequestedLoanSlider
                 label="Day 1 loan amount"
+                showHeader={false}
                 value={field.value}
                 onValueChange={(v) => field.onChange(v)}
                 min={sliderMin}
@@ -80,7 +84,6 @@ export function LoanSizer() {
         <SectionCard
           id="closing-costs"
           title="Closing costs"
-          description="Broker points and third-party fees used in cash to cover closing."
         >
           <LoanSizerClosingCostsForm form={form} />
         </SectionCard>

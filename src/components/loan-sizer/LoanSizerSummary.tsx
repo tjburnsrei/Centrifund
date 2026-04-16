@@ -3,7 +3,6 @@ import {
   formatRate,
 } from '../../domain/loanSizer/formatters'
 import type { LoanSizerOutputs } from '../../domain/loanSizer/types'
-import { ResultBadge } from './ResultBadge'
 import { SectionCard } from './SectionCard'
 
 export interface OutputCardsProps {
@@ -16,6 +15,7 @@ export function AllowableLeverageCard({ outputs }: OutputCardsProps) {
       id="allowable-leverage"
       title="Allowable leverage"
       description="Tier and product caps after all adjustments. Rehab is assumed 100% funded."
+      descriptionInline
     >
       <dl className="grid gap-3 sm:grid-cols-3">
         <div className="flex flex-col gap-1">
@@ -49,9 +49,6 @@ export function AllowableLeverageCard({ outputs }: OutputCardsProps) {
           </dd>
         </div>
       </dl>
-      <p className="mt-3 text-xs text-text-secondary">
-        Rehab is assumed to be 100% funded.
-      </p>
     </SectionCard>
   )
 }
@@ -78,19 +75,9 @@ export function MessagesCard({ outputs }: OutputCardsProps) {
 }
 
 export function CalculationsCard({ outputs }: OutputCardsProps) {
-  const eligLabel = outputs.isEligible ? 'Eligible (indicative)' : 'Not eligible'
-  const eligTone = outputs.isEligible ? 'success' : 'danger'
-  const eligPrefix = outputs.isEligible
-    ? 'Status: eligible.'
-    : 'Status: not eligible.'
-
   return (
-    <SectionCard
-      id="calculations"
-      title="Calculations"
-      description="Indicative pricing and sizing—not a credit decision."
-    >
-      <dl className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+    <SectionCard id="calculations" title="Calculations">
+      <dl className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
           <dt className="text-xs font-medium text-text-secondary">Rate</dt>
           <dd className="text-lg font-semibold tabular-nums text-text-primary">
@@ -99,42 +86,10 @@ export function CalculationsCard({ outputs }: OutputCardsProps) {
         </div>
         <div className="flex flex-col gap-1">
           <dt className="text-xs font-medium text-text-secondary">
-            Max loan amount
-          </dt>
-          <dd className="text-lg font-semibold tabular-nums text-text-primary">
-            {formatCurrency(outputs.maxLoanAmount)}
-          </dd>
-        </div>
-        <div className="flex flex-col gap-1">
-          <dt className="text-xs font-medium text-text-secondary">
             Project type
           </dt>
           <dd className="text-sm font-semibold text-text-primary">
             {outputs.projectType ?? '—'}
-          </dd>
-        </div>
-        <div className="flex flex-col gap-1">
-          <dt className="text-xs font-medium text-text-secondary">Tier</dt>
-          <dd className="text-sm font-semibold text-text-primary">
-            {outputs.estimatedTier ?? '—'}
-          </dd>
-        </div>
-        <div className="flex flex-col gap-1">
-          <dt className="text-xs font-medium text-text-secondary">
-            Eligibility
-          </dt>
-          <dd>
-            <ResultBadge tone={eligTone} statusPrefix={eligPrefix}>
-              {eligLabel}
-            </ResultBadge>
-          </dd>
-        </div>
-        <div className="flex flex-col gap-1">
-          <dt className="text-xs font-medium text-text-secondary">
-            Max Day 1 loan
-          </dt>
-          <dd className="text-sm font-semibold tabular-nums text-text-primary">
-            {formatCurrency(outputs.maxDay1Loan)}
           </dd>
         </div>
       </dl>

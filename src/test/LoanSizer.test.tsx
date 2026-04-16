@@ -42,7 +42,7 @@ describe('LoanSizer', () => {
       screen.getByLabelText(/qualifying fico/i),
       'below680',
     )
-    expect(screen.getAllByText(/not eligible/i).length).toBeGreaterThan(0)
+    expect(screen.getByRole('region', { name: /^messages$/i })).toBeInTheDocument()
     expect(
       screen.getByText(/qualifying fico is below the 680 minimum/i),
     ).toBeInTheDocument()
@@ -111,7 +111,6 @@ describe('LoanSizer', () => {
     )
     await user.click(screen.getByText(/advanced scenarios/i, { selector: 'p' }))
     await user.click(screen.getByLabelText(/roof removal/i))
-    expect(screen.getAllByText(/not eligible/i).length).toBeGreaterThan(0)
     const messages = screen.getByRole('region', { name: /^messages$/i })
     expect(
       within(messages).getByText(/guc is not available for the silver/i),

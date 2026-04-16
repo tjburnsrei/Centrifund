@@ -76,7 +76,7 @@ export function LoanSizerForm({ form }: LoanSizerFormProps) {
                 <SelectInput
                   inputId="propertyCounty"
                   label="Property county"
-                  description={
+                  inlineDescription={
                     countyEnabled
                       ? 'Required for New York select-county leverage adjustments.'
                       : 'Not required for this state.'
@@ -205,11 +205,11 @@ export function LoanSizerForm({ form }: LoanSizerFormProps) {
       <details className="group rounded-lg border border-border/80 bg-white shadow-sm">
         <summary className="cursor-pointer list-none px-3 py-2 md:px-4">
           <div className="flex items-center justify-between gap-4">
-            <div>
+            <div className="flex flex-wrap items-baseline gap-2">
               <p className="text-sm font-semibold text-text-primary">
                 Advanced scenarios
               </p>
-              <p className="mt-0.5 text-[11px] text-text-secondary">
+              <p className="text-[11px] text-text-secondary">
                 Only needed for structural/GUC deals and condo adjustments.
               </p>
             </div>
@@ -310,7 +310,6 @@ export function LoanSizerClosingCostsForm({
           <NumberInput
             inputId="brokerPoints"
             label="Broker points (%)"
-            description="Added to cash to cover closing."
             error={e.brokerPointsPct?.message}
             value={field.value ?? null}
             onValueChange={field.onChange}
