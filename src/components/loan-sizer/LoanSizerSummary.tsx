@@ -9,43 +9,42 @@ export interface OutputCardsProps {
   outputs: LoanSizerOutputs
 }
 
+function formatWholePercent(value: number | null): string {
+  return value !== null ? `${value.toFixed(0)}%` : '-'
+}
+
 export function AllowableLeverageCard({ outputs }: OutputCardsProps) {
   return (
-    <SectionCard
-      id="allowable-leverage"
-      title="Allowable leverage"
-      description="Tier and product caps after all adjustments. Rehab is assumed 100% funded."
-      descriptionInline
-    >
-      <dl className="grid gap-3 sm:grid-cols-3">
+    <SectionCard id="allowable-leverage" title="Allowable leverage">
+      <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <div className="flex flex-col gap-1">
-          <dt className="text-xs font-medium text-text-secondary">
-            Max initial LTC
-          </dt>
+          <dt className="text-xs font-medium text-text-secondary">Total LTC</dt>
           <dd className="text-lg font-semibold tabular-nums text-text-primary">
-            {outputs.maxInitialLtcPct !== null
-              ? `${outputs.maxInitialLtcPct.toFixed(0)}%`
-              : '—'}
+            {formatWholePercent(outputs.maxTotalLtcPct)}
           </dd>
         </div>
         <div className="flex flex-col gap-1">
           <dt className="text-xs font-medium text-text-secondary">
-            Max total LTC
+            Total LTARV
           </dt>
           <dd className="text-lg font-semibold tabular-nums text-text-primary">
-            {outputs.maxTotalLtcPct !== null
-              ? `${outputs.maxTotalLtcPct.toFixed(0)}%`
-              : '—'}
+            {formatWholePercent(outputs.maxArvLtvPct)}
           </dd>
         </div>
         <div className="flex flex-col gap-1">
           <dt className="text-xs font-medium text-text-secondary">
-            Max LTV (ARV)
+            % of Purchase Price Financed
           </dt>
           <dd className="text-lg font-semibold tabular-nums text-text-primary">
-            {outputs.maxArvLtvPct !== null
-              ? `${outputs.maxArvLtvPct.toFixed(0)}%`
-              : '—'}
+            {formatWholePercent(outputs.maxInitialLtcPct)}
+          </dd>
+        </div>
+        <div className="flex flex-col gap-1">
+          <dt className="text-xs font-medium text-text-secondary">
+            % of Construction Financed
+          </dt>
+          <dd className="text-lg font-semibold tabular-nums text-text-primary">
+            {formatWholePercent(outputs.maxRehabLtcPct)}
           </dd>
         </div>
       </dl>
@@ -89,7 +88,44 @@ export function CalculationsCard({ outputs }: OutputCardsProps) {
             Project type
           </dt>
           <dd className="text-sm font-semibold text-text-primary">
-            {outputs.projectType ?? '—'}
+            {outputs.projectType ?? '-'}
+          </dd>
+        </div>
+      </dl>
+    </SectionCard>
+  )
+}
+
+export function FinancialOutputsCard({ outputs }: OutputCardsProps) {
+  return (
+    <SectionCard id="financial-outputs" title="Financial outputs">
+      <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="flex flex-col gap-1">
+          <dt className="text-xs font-medium text-text-secondary">
+            Purchase Money Loan
+          </dt>
+          <dd className="text-lg font-semibold tabular-nums text-text-primary">
+            {formatCurrency(outputs.purchaseMoneyLoan)}
+          </dd>
+        </div>
+        <div className="flex flex-col gap-1">
+          <dt className="text-xs font-medium text-text-secondary">
+            Rehab Loan
+          </dt>
+          <dd className="text-lg font-semibold tabular-nums text-text-primary">
+            {formatCurrency(outputs.rehabLoan)}
+          </dd>
+        </div>
+        <div className="flex flex-col gap-1">
+          <dt className="text-xs font-medium text-text-secondary">Rate</dt>
+          <dd className="text-lg font-semibold tabular-nums text-text-primary">
+            {formatRate(outputs.finalRate)}
+          </dd>
+        </div>
+        <div className="flex flex-col gap-1">
+          <dt className="text-xs font-medium text-text-secondary">Term</dt>
+          <dd className="text-lg font-semibold tabular-nums text-text-primary">
+            {outputs.termMonths !== null ? `${outputs.termMonths} months` : '-'}
           </dd>
         </div>
       </dl>
@@ -99,11 +135,7 @@ export function CalculationsCard({ outputs }: OutputCardsProps) {
 
 export function BorrowerOutputsCard({ outputs }: OutputCardsProps) {
   return (
-    <SectionCard
-      id="borrower-outputs"
-      title="Borrower outputs"
-      description="Estimated monthly obligation and cash needed to close."
-    >
+    <SectionCard id="borrower-outputs" title="Borrower outputs">
       <dl className="grid gap-4 sm:grid-cols-3">
         <div className="flex flex-col gap-1">
           <dt className="text-xs font-medium text-text-secondary">
@@ -113,7 +145,7 @@ export function BorrowerOutputsCard({ outputs }: OutputCardsProps) {
             {formatCurrency(outputs.estimatedMonthlyPayment)}
           </dd>
           <p className="text-xs text-text-secondary">
-            Interest-only on the requested Day 1 loan.
+            Interest-only on the purchase money loan.
           </p>
         </div>
         <div className="flex flex-col gap-1">
@@ -124,7 +156,7 @@ export function BorrowerOutputsCard({ outputs }: OutputCardsProps) {
             {formatCurrency(outputs.downPaymentNeeded)}
           </dd>
           <p className="text-xs text-text-secondary">
-            Purchase price minus the requested Day 1 loan.
+            Purchase price minus the purchase money loan.
           </p>
         </div>
         <div className="flex flex-col gap-1">
@@ -189,7 +221,7 @@ export interface LoanSizerSummaryProps {
 export function LoanSizerSummary({ outputs }: LoanSizerSummaryProps) {
   return (
     <div className="flex flex-col gap-4">
-      <CalculationsCard outputs={outputs} />
+      <FinancialOutputsCard outputs={outputs} />
       <BorrowerOutputsCard outputs={outputs} />
       <MessagesCard outputs={outputs} />
     </div>

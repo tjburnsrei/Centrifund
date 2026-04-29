@@ -1,6 +1,7 @@
 import {
   GLOBAL_ASSUMPTIONS,
   GROUND_UP_LIQUIDITY_CONSTRUCTION_BUDGET_PCT,
+  LOAN_TERM_MONTHS,
   MAX_LOAN_AMOUNT_USD,
   RATE_SHEET_CONFIG,
 } from './constants'
@@ -36,6 +37,51 @@ function safeDiv(n: number, d: number): number | null {
 function finiteOrNull(n: number): number | null {
   if (!Number.isFinite(n)) return null
   return n
+}
+
+function finitePositiveOrNull(n: number): number | null {
+  if (!Number.isFinite(n)) return null
+  return Math.max(0, n)
+}
+
+function minFinite(values: Array<number | null | undefined>): number | null {
+  const finite = values.filter(
+    (v): v is number => v !== null && v !== undefined && Number.isFinite(v),
+  )
+  if (finite.length === 0) return null
+  return Math.min(...finite)
+}
+
+function calculateAmountFromPercent(
+  amount: number | null,
+  percent: number | null | undefined,
+): number | null {
+  if (
+    amount === null ||
+    percent === null ||
+    percent === undefined ||
+    !Number.isFinite(amount) ||
+    !Number.isFinite(percent)
+  ) {
+    return null
+  }
+  return finiteOrNull(Math.max(0, amount) * (Math.max(0, percent) / 100))
+}
+
+function calculatePercentFromAmount(
+  amount: number | null,
+  basis: number | null,
+): number | null {
+  if (
+    amount === null ||
+    basis === null ||
+    !Number.isFinite(amount) ||
+    !Number.isFinite(basis) ||
+    basis <= 0
+  ) {
+    return null
+  }
+  return finitePositiveOrNull((amount / basis) * 100)
 }
 
 function calculateFinancedBudget(
@@ -99,7 +145,10 @@ export function calculateMaxTotalLoan(
 
   const parts: number[] = []
 
-  const financedBudget = calculateFinancedBudget(projectType, budget)
+  const financedBudget =
+    projectType === 'Bridge No Rehab'
+      ? 0
+      : calculateMaxRehabFinancing(budget, caps.maxRehabLtcPct) ?? 0
 
   if (caps.maxInitialLtcPct !== null) {
     const v = aiv * (caps.maxInitialLtcPct / 100) + financedBudget
@@ -137,6 +186,7 @@ export function calculateRequestedMetrics(
   arv: number,
   requestedDay1: number,
   projectType: ProjectType | null,
+  requestedFinancedBudgetOverride?: number | null,
 ): {
   requestedFinancedBudget: number
   requestedTotalLoan: number
@@ -145,7 +195,8 @@ export function calculateRequestedMetrics(
   requestedLtarv: number | null
 } {
   const b = Number.isFinite(budget) ? budget : 0
-  const requestedFinancedBudget = calculateFinancedBudget(projectType, b)
+  const requestedFinancedBudget =
+    requestedFinancedBudgetOverride ?? calculateFinancedBudget(projectType, b)
   const requestedTotalLoan = requestedDay1 + requestedFinancedBudget
   const aivOk = Number.isFinite(aiv) && aiv > 0
   const costBasis = aiv + b
@@ -275,6 +326,10 @@ export function calculateLoanSizerOutputs(
   const budget = inputs.projectBudget
   const fico = inputs.qualifyingFico
   const requestedDay1Raw = inputs.requestedDay1LoanAmount
+  const requestedPurchasePriceFinancedPct =
+    inputs.requestedPurchasePriceFinancedPct ?? null
+  const requestedConstructionFinancedPct =
+    inputs.requestedConstructionFinancedPct ?? null
   const permits = inputs.permitsApprovedOrImminent ?? false
   const structural = Boolean(inputs.roofRemoval || inputs.wallRemoval)
   const condo = inputs.nonWarrantableCondo ?? false
@@ -401,8 +456,6 @@ export function calculateLoanSizerOutputs(
   }
 
   const budgetForCalc = budget ?? 0
-  const financedBudget = calculateFinancedBudget(projectType, budgetForCalc)
-
   const maxTotalLoan =
     aiv !== null && aiv > 0 && budget !== null && adjustedCaps
       ? calculateMaxTotalLoan(
@@ -414,20 +467,127 @@ export function calculateLoanSizerOutputs(
         )
       : null
 
-  const uncappedMaxDay1 =
+  const purchaseComponentCap =
     aiv !== null && aiv > 0 && adjustedCaps
       ? calculateMaxDay1Loan(aiv, adjustedCaps.maxInitialLtcPct)
       : null
 
-  const maxDay1Loan =
-    uncappedMaxDay1 !== null && maxTotalLoan !== null
-      ? Math.min(uncappedMaxDay1, Math.max(0, maxTotalLoan - financedBudget))
-      : uncappedMaxDay1
+  const rehabComponentCap =
+    projectType === 'Bridge No Rehab'
+      ? 0
+      : budget !== null && adjustedCaps
+        ? calculateMaxRehabFinancing(
+            budgetForCalc,
+            adjustedCaps.maxRehabLtcPct,
+          )
+        : null
+
+  const allowablePurchaseMoneyLoan =
+    purchaseComponentCap !== null && maxTotalLoan !== null
+      ? Math.min(purchaseComponentCap, maxTotalLoan)
+      : purchaseComponentCap
+
+  const allowableRehabLoan =
+    rehabComponentCap !== null && maxTotalLoan !== null
+      ? Math.min(rehabComponentCap, maxTotalLoan)
+      : rehabComponentCap
 
   const maxFinancedBudget =
-    maxTotalLoan !== null ? financedBudget : null
+    rehabComponentCap !== null && maxTotalLoan !== null
+      ? Math.min(rehabComponentCap, maxTotalLoan)
+      : rehabComponentCap
 
-  const requestedDay1 = Math.max(0, requestedDay1Raw ?? 0)
+  const maxDay1Loan =
+    purchaseComponentCap !== null && maxTotalLoan !== null
+      ? Math.min(
+          purchaseComponentCap,
+          Math.max(0, maxTotalLoan - (maxFinancedBudget ?? 0)),
+        )
+      : purchaseComponentCap
+
+  const derivedPurchaseMoneyLoan = calculateAmountFromPercent(
+    aiv,
+    requestedPurchasePriceFinancedPct,
+  )
+  const derivedRehabLoan = calculateAmountFromPercent(
+    budgetNum,
+    requestedConstructionFinancedPct,
+  )
+
+  const desiredPurchaseMoneyLoan = Math.max(
+    0,
+    derivedPurchaseMoneyLoan ?? requestedDay1Raw ?? 0,
+  )
+  const desiredRehabLoan =
+    projectType === 'Bridge No Rehab'
+      ? 0
+      : Math.max(
+          0,
+          derivedRehabLoan ?? calculateFinancedBudget(projectType, budgetNum),
+        )
+
+  const costBasis =
+    aiv !== null && budget !== null && Number.isFinite(aiv + budgetForCalc)
+      ? aiv + budgetForCalc
+      : null
+  const requestedTotalLoanCap = maxTotalLoan
+
+  const purchaseMoneyLoanCap = minFinite([
+    purchaseComponentCap,
+    requestedTotalLoanCap,
+  ])
+  const requestedDay1 = Math.min(
+    desiredPurchaseMoneyLoan,
+    purchaseMoneyLoanCap ?? desiredPurchaseMoneyLoan,
+  )
+  const remainingRequestedTotal =
+    requestedTotalLoanCap !== null
+      ? Math.max(0, requestedTotalLoanCap - requestedDay1)
+      : null
+  const rehabLoanCap = minFinite([rehabComponentCap, remainingRequestedTotal])
+  const requestedRehabLoan = Math.min(
+    desiredRehabLoan,
+    rehabLoanCap ?? desiredRehabLoan,
+  )
+
+  const maxPurchaseForCurrentRequest = minFinite([
+    purchaseComponentCap,
+    requestedTotalLoanCap !== null
+      ? Math.max(
+          0,
+          requestedTotalLoanCap -
+            Math.min(desiredRehabLoan, rehabComponentCap ?? desiredRehabLoan),
+        )
+      : null,
+  ])
+  const maxConstructionForCurrentRequest = minFinite([
+    rehabComponentCap,
+    requestedTotalLoanCap !== null
+      ? Math.max(
+          0,
+          requestedTotalLoanCap -
+            Math.min(
+              desiredPurchaseMoneyLoan,
+              purchaseComponentCap ?? desiredPurchaseMoneyLoan,
+            ),
+        )
+      : null,
+  ])
+
+  const allowableTotalLtcPct = calculatePercentFromAmount(
+    maxTotalLoan,
+    costBasis,
+  )
+  const allowableTotalLtarvPct = calculatePercentFromAmount(maxTotalLoan, arv)
+  const allowablePurchasePriceFinancedPct = calculatePercentFromAmount(
+    allowablePurchaseMoneyLoan,
+    aiv,
+  )
+  const allowableConstructionFinancedPct = calculatePercentFromAmount(
+    allowableRehabLoan,
+    budget !== null && budget > 0 ? budget : null,
+  )
+
   const req =
     aiv !== null && aiv > 0
       ? calculateRequestedMetrics(
@@ -436,11 +596,11 @@ export function calculateLoanSizerOutputs(
           arv !== null && arv > 0 ? arv : 0,
           requestedDay1,
           projectType,
+          requestedRehabLoan,
         )
       : {
-          requestedFinancedBudget: calculateFinancedBudget(projectType, budgetNum),
-          requestedTotalLoan:
-            requestedDay1 + calculateFinancedBudget(projectType, budgetNum),
+          requestedFinancedBudget: requestedRehabLoan,
+          requestedTotalLoan: requestedDay1 + requestedRehabLoan,
           requestedLtv: null as number | null,
           requestedLtc: null as number | null,
           requestedLtarv: null as number | null,
@@ -456,13 +616,15 @@ export function calculateLoanSizerOutputs(
     blocking.push('Profitability test failed.')
   }
 
-  if (
-    maxDay1Loan !== null &&
-    requestedDay1Raw !== null &&
-    requestedDay1Raw > maxDay1Loan
-  ) {
+  if (purchaseMoneyLoanCap !== null && desiredPurchaseMoneyLoan > requestedDay1) {
     warnings.push(
-      'Requested Day 1 loan exceeds the estimated maximum Day 1 loan.',
+      'Requested purchase price financing exceeds the current maximum.',
+    )
+  }
+
+  if (rehabLoanCap !== null && desiredRehabLoan > requestedRehabLoan) {
+    warnings.push(
+      'Requested construction financing exceeds the current maximum.',
     )
   }
 
@@ -554,7 +716,7 @@ export function calculateLoanSizerOutputs(
     maxDay1Loan,
     maxFinancedBudget,
     maxTotalLoan,
-    requestedDay1LoanAmount: requestedDay1Raw,
+    requestedDay1LoanAmount: requestedDay1,
     requestedFinancedBudget: req.requestedFinancedBudget,
     requestedTotalLoan: req.requestedTotalLoan,
     maxLtv,
@@ -563,9 +725,29 @@ export function calculateLoanSizerOutputs(
     requestedLtv: req.requestedLtv,
     requestedLtc: req.requestedLtc,
     requestedLtarv: req.requestedLtarv,
-    maxInitialLtcPct: adjustedCaps?.maxInitialLtcPct ?? null,
-    maxTotalLtcPct: adjustedCaps?.maxTotalLtcPct ?? null,
-    maxArvLtvPct: adjustedCaps?.maxArvLtvPct ?? null,
+    requestedTotalLtcPct:
+      req.requestedLtc !== null ? req.requestedLtc * 100 : null,
+    requestedTotalLtarvPct:
+      req.requestedLtarv !== null ? req.requestedLtarv * 100 : null,
+    requestedPurchasePriceFinancedPct,
+    requestedConstructionFinancedPct,
+    requestedMaxTotalLtcPct: allowableTotalLtcPct,
+    requestedMaxTotalLtarvPct: allowableTotalLtarvPct,
+    requestedMaxPurchasePriceFinancedPct: calculatePercentFromAmount(
+      maxPurchaseForCurrentRequest,
+      aiv,
+    ),
+    requestedMaxConstructionFinancedPct: calculatePercentFromAmount(
+      maxConstructionForCurrentRequest,
+      budget !== null && budget > 0 ? budget : null,
+    ),
+    maxInitialLtcPct: allowablePurchasePriceFinancedPct,
+    maxRehabLtcPct: allowableConstructionFinancedPct,
+    maxTotalLtcPct: allowableTotalLtcPct,
+    maxArvLtvPct: allowableTotalLtarvPct,
+    purchaseMoneyLoan: requestedDay1,
+    rehabLoan: req.requestedFinancedBudget,
+    termMonths: LOAN_TERM_MONTHS,
     downPaymentNeeded,
     estimatedCashToCoverClosing: cashToCoverClosing,
     estimatedMonthlyPayment,

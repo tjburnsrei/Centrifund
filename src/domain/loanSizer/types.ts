@@ -31,6 +31,10 @@ export interface LoanSizerInputs {
   citizenship: Citizenship
   projectBudget: number | null
   pointsOrOriginationChoice?: OriginationPointsChoice | null
+  requestedTotalLtcPct?: number | null
+  requestedTotalLtarvPct?: number | null
+  requestedPurchasePriceFinancedPct?: number | null
+  requestedConstructionFinancedPct?: number | null
   requestedDay1LoanAmount: number | null
   permitsApprovedOrImminent?: boolean
   roofRemoval?: boolean
@@ -67,10 +71,22 @@ export interface LoanSizerOutputs {
   requestedLtv: number | null
   requestedLtc: number | null
   requestedLtarv: number | null
+  requestedTotalLtcPct: number | null
+  requestedTotalLtarvPct: number | null
+  requestedPurchasePriceFinancedPct: number | null
+  requestedConstructionFinancedPct: number | null
+  requestedMaxTotalLtcPct: number | null
+  requestedMaxTotalLtarvPct: number | null
+  requestedMaxPurchasePriceFinancedPct: number | null
+  requestedMaxConstructionFinancedPct: number | null
   /** Adjusted leverage caps (post all bonuses, adjustments, condo) exposed for the UI. */
   maxInitialLtcPct: number | null
+  maxRehabLtcPct: number | null
   maxTotalLtcPct: number | null
   maxArvLtvPct: number | null
+  purchaseMoneyLoan: number | null
+  rehabLoan: number | null
+  termMonths: number | null
   downPaymentNeeded: number | null
   estimatedCashToCoverClosing: number | null
   /** Interest-only monthly payment on the requested Day 1 loan. */

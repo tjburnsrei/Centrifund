@@ -239,7 +239,9 @@ describe('calculateLoanSizerOutputs', () => {
     const out = calculateLoanSizerOutputs(
       baseInputs({ requestedDay1LoanAmount: 500_000 }),
     )
-    expect(out.warnings.some((w) => w.includes('Day 1'))).toBe(true)
+    expect(
+      out.warnings.some((w) => w.includes('purchase price financing')),
+    ).toBe(true)
   })
 
   it('handles null ARV with blocking for rehab types', () => {
@@ -342,10 +344,92 @@ describe('calculateLoanSizerOutputs', () => {
       }),
     )
     expect(out.finalRate).not.toBeNull()
+    expect(out.purchaseMoneyLoan).not.toBeNull()
     expect(out.estimatedMonthlyPayment).toBeCloseTo(
-      (450_000 * ((out.finalRate ?? 0) / 100)) / 12,
+      ((out.purchaseMoneyLoan ?? 0) * ((out.finalRate ?? 0) / 100)) / 12,
       2,
     )
+  })
+
+  it('derives requested loan dollars from requested leverage percentages', () => {
+    const out = calculateLoanSizerOutputs(
+      baseInputs({
+        requestedDay1LoanAmount: 999_999,
+        requestedTotalLtcPct: 90,
+        requestedTotalLtarvPct: 75,
+        requestedPurchasePriceFinancedPct: 80,
+        requestedConstructionFinancedPct: 50,
+      }),
+    )
+    expect(out.requestedDay1LoanAmount).toBe(200_000)
+    expect(out.purchaseMoneyLoan).toBe(200_000)
+    expect(out.requestedFinancedBudget).toBe(25_000)
+    expect(out.rehabLoan).toBe(25_000)
+    expect(out.requestedTotalLtcPct).toBe(75)
+    expect(out.requestedTotalLtarvPct).toBeCloseTo(56.25, 4)
+    expect(out.requestedPurchasePriceFinancedPct).toBe(80)
+    expect(out.requestedConstructionFinancedPct).toBe(50)
+  })
+
+  it('computes allowable leverage percentages from deal dollars and component caps', () => {
+    const out = calculateLoanSizerOutputs(
+      baseInputs({
+        propertyState: 'CA',
+        guarantorExperience: '5+',
+        purchasePriceOrAsIsValue: 500_000,
+        projectBudget: 100_000,
+        estimatedArv: 800_000,
+      }),
+    )
+    expect(out.maxTotalLoan).not.toBeNull()
+    expect(out.maxTotalLtcPct).toBeCloseTo(
+      ((out.maxTotalLoan ?? 0) / 600_000) * 100,
+      4,
+    )
+    expect(out.maxArvLtvPct).toBeCloseTo(
+      ((out.maxTotalLoan ?? 0) / 800_000) * 100,
+      4,
+    )
+    expect(out.maxTotalLtcPct ?? 0).toBeLessThan(95)
+  })
+
+  it('caps construction financing from total program limits and purchase financing', () => {
+    const out = calculateLoanSizerOutputs(
+      baseInputs({
+        propertyState: 'CA',
+        guarantorExperience: '5+',
+        purchasePriceOrAsIsValue: 500_000,
+        projectBudget: 100_000,
+        estimatedArv: 700_000,
+        requestedPurchasePriceFinancedPct: 90,
+        requestedConstructionFinancedPct: 100,
+      }),
+    )
+    expect(out.purchaseMoneyLoan).toBe(450_000)
+    expect(out.requestedMaxConstructionFinancedPct).toBeCloseTo(75, 4)
+    expect(out.rehabLoan).toBe(75_000)
+    expect(out.requestedTotalLtcPct).toBeCloseTo(87.5, 4)
+    expect(out.requestedTotalLtarvPct).toBeCloseTo(75, 4)
+    expect(
+      out.warnings.some((w) => w.includes('construction financing')),
+    ).toBe(true)
+  })
+
+  it('allows full construction financing when requested purchase financing leaves enough total LTC room', () => {
+    const out = calculateLoanSizerOutputs(
+      baseInputs({
+        propertyState: 'CA',
+        guarantorExperience: '5+',
+        purchasePriceOrAsIsValue: 500_000,
+        projectBudget: 100_000,
+        estimatedArv: 800_000,
+        requestedPurchasePriceFinancedPct: 80,
+        requestedConstructionFinancedPct: 100,
+      }),
+    )
+    expect(out.purchaseMoneyLoan).toBe(400_000)
+    expect(out.requestedMaxConstructionFinancedPct).toBe(100)
+    expect(out.rehabLoan).toBe(100_000)
   })
 
   it('exposes adjusted leverage caps on outputs', () => {
@@ -359,8 +443,10 @@ describe('calculateLoanSizerOutputs', () => {
       }),
     )
     expect(out.maxInitialLtcPct).not.toBeNull()
+    expect(out.maxRehabLtcPct).not.toBeNull()
     expect(out.maxTotalLtcPct).not.toBeNull()
     expect(out.maxArvLtvPct).not.toBeNull()
+    expect(out.termMonths).toBe(12)
   })
 
   it('applies Nassau county as the moderate negative adjustment', () => {
@@ -390,6 +476,7 @@ describe('calculateLoanSizerOutputs', () => {
       out.baseRate,
       out.finalRate,
       out.maxDay1Loan,
+      out.maxFinancedBudget,
       out.maxTotalLoan,
       out.maxLtv,
       out.maxLtc,
@@ -397,6 +484,13 @@ describe('calculateLoanSizerOutputs', () => {
       out.requestedLtv,
       out.requestedLtc,
       out.requestedLtarv,
+      out.maxInitialLtcPct,
+      out.maxRehabLtcPct,
+      out.maxTotalLtcPct,
+      out.maxArvLtvPct,
+      out.purchaseMoneyLoan,
+      out.rehabLoan,
+      out.termMonths,
       out.estimatedMonthlyPayment,
       out.downPaymentNeeded,
       out.estimatedCashToCoverClosing,

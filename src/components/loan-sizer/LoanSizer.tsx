@@ -1,39 +1,39 @@
-import { Controller } from 'react-hook-form'
 import { useLoanSizer } from '../../hooks/useLoanSizer'
-import { formatCurrency } from '../../domain/loanSizer/formatters'
 import {
   LoanSizerClosingCostsForm,
   LoanSizerForm,
+  LoanSizerRequestedLeverageForm,
 } from './LoanSizerForm'
 import {
   AllowableLeverageCard,
   AssumptionsCard,
   BorrowerOutputsCard,
-  CalculationsCard,
+  FinancialOutputsCard,
   MessagesCard,
 } from './LoanSizerSummary'
-import { RequestedLoanSlider } from './fields/RequestedLoanSlider'
 import { SectionCard } from './SectionCard'
 
-const SLIDER_MIN_PERCENT_OF_PURCHASE = 0.1
+function roundedPercent(value: number | null): number | null {
+  if (value === null || !Number.isFinite(value)) return null
+  return Number(Math.max(0, value).toFixed(2))
+}
 
 export function LoanSizer() {
-  const { form, outputs, values } = useLoanSizer()
-  const purchasePrice = values.purchasePriceOrAsIsValue ?? 0
-  const sliderMin = Math.max(
-    0,
-    Math.round(purchasePrice * SLIDER_MIN_PERCENT_OF_PURCHASE),
-  )
-  const sliderMax = outputs.maxDay1Loan
-  const sliderDisabledReason =
-    outputs.maxDay1Loan === null
-      ? outputs.warnings[0] ??
-        'Complete the deal inputs above to see your max Day 1 loan.'
-      : undefined
+  const { form, outputs } = useLoanSizer()
   const hasAlerts = outputs.warnings.length > 0
-  const requestedLoanTitle = `Requested purchase loan - ${formatCurrency(
-    values.requestedDay1LoanAmount,
-  )}`
+  const applyMaxRequestedLeverage = () => {
+    const updates = [
+      ['requestedPurchasePriceFinancedPct', outputs.maxInitialLtcPct],
+      ['requestedConstructionFinancedPct', outputs.maxRehabLtcPct],
+    ] as const
+
+    for (const [field, value] of updates) {
+      form.setValue(field, roundedPercent(value), {
+        shouldDirty: true,
+        shouldValidate: true,
+      })
+    }
+  }
 
   return (
     <div className="mx-auto w-full max-w-[1500px] px-3 py-5 md:px-4">
@@ -56,30 +56,24 @@ export function LoanSizer() {
         <AllowableLeverageCard outputs={outputs} />
 
         <SectionCard
-          id="requested-loan"
-          title={requestedLoanTitle}
+          id="requested-leverage"
+          title="Requested leverage"
         >
-          <Controller
-            name="requestedDay1LoanAmount"
-            control={form.control}
-            render={({ field }) => (
-              <RequestedLoanSlider
-                label="Day 1 loan amount"
-                showHeader={false}
-                value={field.value}
-                onValueChange={(v) => field.onChange(v)}
-                min={sliderMin}
-                max={sliderMax}
-                purchasePrice={purchasePrice > 0 ? purchasePrice : null}
-                disabledReason={sliderDisabledReason}
-              />
-            )}
-          />
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={applyMaxRequestedLeverage}
+              className="inline-flex items-center justify-center rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-text-primary shadow-sm transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >
+              Apply max
+            </button>
+          </div>
+          <LoanSizerRequestedLeverageForm form={form} outputs={outputs} />
         </SectionCard>
 
         {hasAlerts ? <MessagesCard outputs={outputs} /> : null}
 
-        <CalculationsCard outputs={outputs} />
+        <FinancialOutputsCard outputs={outputs} />
 
         <SectionCard
           id="closing-costs"

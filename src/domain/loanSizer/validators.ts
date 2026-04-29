@@ -86,6 +86,19 @@ const nullablePercent = z
     'Must be between 0 and 10',
   )
 
+const nullableRequestedLeveragePercent = z
+  .union([z.number(), z.null(), z.undefined()])
+  .transform((v) => {
+    if (v === undefined || v === null || Number.isNaN(v)) {
+      return null
+    }
+    return v
+  })
+  .refine(
+    (v) => v === null || (v >= 0 && v <= 150),
+    'Must be between 0 and 150',
+  )
+
 export const loanSizerFormSchema = z
   .object({
     estimatedArv: nullableCurrency,
@@ -118,6 +131,10 @@ export const loanSizerFormSchema = z
     pointsOrOriginationChoice: z
       .union([z.literal(1), z.literal(0.5), z.literal(0), z.null(), z.undefined()])
       .transform((v) => (v === undefined ? null : v)),
+    requestedTotalLtcPct: nullableRequestedLeveragePercent,
+    requestedTotalLtarvPct: nullableRequestedLeveragePercent,
+    requestedPurchasePriceFinancedPct: nullableRequestedLeveragePercent,
+    requestedConstructionFinancedPct: nullableRequestedLeveragePercent,
     requestedDay1LoanAmount: nullableCurrency,
     permitsApprovedOrImminent: z.boolean().optional(),
     roofRemoval: z.boolean().optional(),

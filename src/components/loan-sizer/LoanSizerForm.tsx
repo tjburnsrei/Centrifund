@@ -1,9 +1,11 @@
+import { useEffect } from 'react'
 import { Controller, type UseFormReturn, useWatch } from 'react-hook-form'
 import {
   NEW_YORK_CODE,
   RATE_SHEET_CONFIG,
   US_STATE_CODES,
   type LoanSizerFormValues,
+  type LoanSizerOutputs,
 } from '../../domain/loanSizer'
 import { FICO_BAND_OPTIONS } from '../../hooks/useLoanSizer'
 import { CheckboxField } from './fields/CheckboxField'
@@ -37,12 +39,27 @@ export interface LoanSizerFormProps {
 export function LoanSizerForm({ form }: LoanSizerFormProps) {
   const { control, formState, setValue } = form
   const e = formState.errors
-  const [roofRemoval, wallRemoval, propertyState] = useWatch({
+  const [roofRemoval, wallRemoval, propertyState, permitsApprovedOrImminent] =
+    useWatch({
     control,
-    name: ['roofRemoval', 'wallRemoval', 'propertyState'],
+    name: [
+      'roofRemoval',
+      'wallRemoval',
+      'propertyState',
+      'permitsApprovedOrImminent',
+    ],
   })
   const showPermits = Boolean(roofRemoval || wallRemoval)
   const countyEnabled = propertyState === NEW_YORK_CODE
+
+  useEffect(() => {
+    if (!showPermits && permitsApprovedOrImminent) {
+      setValue('permitsApprovedOrImminent', false, {
+        shouldDirty: true,
+        shouldValidate: true,
+      })
+    }
+  }, [permitsApprovedOrImminent, setValue, showPermits])
 
   return (
     <div className="flex flex-col gap-4">
@@ -202,26 +219,8 @@ export function LoanSizerForm({ form }: LoanSizerFormProps) {
         </div>
       </SectionCard>
 
-      <details className="group rounded-lg border border-border/80 bg-white shadow-sm">
-        <summary className="cursor-pointer list-none px-3 py-2 md:px-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex flex-wrap items-baseline gap-2">
-              <p className="text-sm font-semibold text-text-primary">
-                Advanced scenarios
-              </p>
-              <p className="text-[11px] text-text-secondary">
-                Only needed for structural/GUC deals and condo adjustments.
-              </p>
-            </div>
-            <span className="text-[11px] font-medium text-text-secondary group-open:hidden">
-              Show
-            </span>
-            <span className="hidden text-[11px] font-medium text-text-secondary group-open:inline">
-              Hide
-            </span>
-          </div>
-        </summary>
-        <div className="space-y-3 border-t border-border px-3 py-3 md:px-4">
+      <SectionCard id="advanced-scenarios" title="Advanced scenarios">
+        <div className="grid gap-3 md:grid-cols-2">
           <Controller
             name="roofRemoval"
             control={control}
@@ -252,24 +251,23 @@ export function LoanSizerForm({ form }: LoanSizerFormProps) {
               />
             )}
           />
-          {showPermits ? (
-            <Controller
-              name="permitsApprovedOrImminent"
-              control={control}
-              render={({ field }) => (
-                <CheckboxField
-                  inputId="permits"
-                  label="Permits approved or imminent"
-                  description="Applies the GUC initial LTC permits bonus when the project auto-classifies as GUC."
-                  checked={field.value ?? false}
-                  onChange={field.onChange}
-                  onBlur={field.onBlur}
-                  name={field.name}
-                  ref={field.ref}
-                />
-              )}
-            />
-          ) : null}
+          <Controller
+            name="permitsApprovedOrImminent"
+            control={control}
+            render={({ field }) => (
+              <CheckboxField
+                inputId="permits"
+                label="Permits approved or imminent"
+                description="Applies the GUC initial LTC permits bonus when the project auto-classifies as GUC."
+                disabled={!showPermits}
+                checked={showPermits ? field.value ?? false : false}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                name={field.name}
+                ref={field.ref}
+              />
+            )}
+          />
           <Controller
             name="nonWarrantableCondo"
             control={control}
@@ -287,13 +285,180 @@ export function LoanSizerForm({ form }: LoanSizerFormProps) {
             )}
           />
         </div>
-      </details>
+      </SectionCard>
     </div>
   )
 }
 
 export interface LoanSizerClosingCostsFormProps {
   form: UseFormReturn<LoanSizerFormValues>
+}
+
+function formatMaxPercent(value: number | null): string | undefined {
+  if (value === null || !Number.isFinite(value)) return undefined
+  const display = Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1)
+  return `Max ${display}% based on current constraints.`
+}
+
+function formatCalculatedPercent(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return '-'
+  const display = Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1)
+  return `${display}%`
+}
+
+function clampPercentToMax(
+  value: number | null,
+  max: number | null,
+): number | null {
+  if (value === null || !Number.isFinite(value)) return null
+  const nonNegative = Math.max(0, value)
+  if (max === null || !Number.isFinite(max)) return nonNegative
+  return Number(Math.min(nonNegative, Math.max(0, max)).toFixed(2))
+}
+
+export interface LoanSizerRequestedLeverageFormProps
+  extends LoanSizerClosingCostsFormProps {
+  outputs: Pick<
+    LoanSizerOutputs,
+    | 'requestedTotalLtcPct'
+    | 'requestedTotalLtarvPct'
+    | 'requestedMaxPurchasePriceFinancedPct'
+    | 'requestedMaxConstructionFinancedPct'
+  >
+}
+
+function CalculatedLeverageMetric({
+  label,
+  value,
+}: {
+  label: string
+  value: number | null
+}) {
+  return (
+    <div className="flex min-h-[72px] flex-col justify-end gap-1">
+      <p className="text-sm font-medium text-text-primary">{label}</p>
+      <p className="text-lg font-semibold tabular-nums text-text-primary">
+        {formatCalculatedPercent(value)}
+      </p>
+    </div>
+  )
+}
+
+export function LoanSizerRequestedLeverageForm({
+  form,
+  outputs,
+}: LoanSizerRequestedLeverageFormProps) {
+  const { control, formState, setValue } = form
+  const e = formState.errors
+  const [requestedPurchasePriceFinancedPct, requestedConstructionFinancedPct] =
+    useWatch({
+    control,
+    name: [
+      'requestedPurchasePriceFinancedPct',
+      'requestedConstructionFinancedPct',
+    ],
+  })
+
+  useEffect(() => {
+    const caps = [
+      [
+        'requestedPurchasePriceFinancedPct',
+        requestedPurchasePriceFinancedPct,
+        outputs.requestedMaxPurchasePriceFinancedPct,
+      ],
+      [
+        'requestedConstructionFinancedPct',
+        requestedConstructionFinancedPct,
+        outputs.requestedMaxConstructionFinancedPct,
+      ],
+    ] as const
+
+    for (const [name, value, max] of caps) {
+      const clamped = clampPercentToMax(value ?? null, max)
+      if (
+        value !== null &&
+        value !== undefined &&
+        clamped !== null &&
+        clamped !== value
+      ) {
+        setValue(name, clamped, {
+          shouldDirty: true,
+          shouldValidate: true,
+        })
+      }
+    }
+  }, [
+    outputs.requestedMaxConstructionFinancedPct,
+    outputs.requestedMaxPurchasePriceFinancedPct,
+    requestedConstructionFinancedPct,
+    requestedPurchasePriceFinancedPct,
+    setValue,
+  ])
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <Controller
+        name="requestedPurchasePriceFinancedPct"
+        control={control}
+        render={({ field }) => (
+          <NumberInput
+            inputId="requestedPurchasePriceFinancedPct"
+            label="Requested Purchase Price Financed (%)"
+            description={formatMaxPercent(
+              outputs.requestedMaxPurchasePriceFinancedPct,
+            )}
+            error={e.requestedPurchasePriceFinancedPct?.message}
+            value={field.value ?? null}
+            onValueChange={(value) =>
+              field.onChange(
+                clampPercentToMax(
+                  value,
+                  outputs.requestedMaxPurchasePriceFinancedPct,
+                ),
+              )
+            }
+            onBlur={field.onBlur}
+            name={field.name}
+            ref={field.ref}
+          />
+        )}
+      />
+      <Controller
+        name="requestedConstructionFinancedPct"
+        control={control}
+        render={({ field }) => (
+          <NumberInput
+            inputId="requestedConstructionFinancedPct"
+            label="Requested Construction Financed (%)"
+            description={formatMaxPercent(
+              outputs.requestedMaxConstructionFinancedPct,
+            )}
+            error={e.requestedConstructionFinancedPct?.message}
+            value={field.value ?? null}
+            onValueChange={(value) =>
+              field.onChange(
+                clampPercentToMax(
+                  value,
+                  outputs.requestedMaxConstructionFinancedPct,
+                ),
+              )
+            }
+            onBlur={field.onBlur}
+            name={field.name}
+            ref={field.ref}
+          />
+        )}
+      />
+      <CalculatedLeverageMetric
+        label="Requested Total LTC"
+        value={outputs.requestedTotalLtcPct}
+      />
+      <CalculatedLeverageMetric
+        label="Requested Total LTARV"
+        value={outputs.requestedTotalLtarvPct}
+      />
+    </div>
+  )
 }
 
 export function LoanSizerClosingCostsForm({
