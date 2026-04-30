@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { LoanSizer } from '../components/loan-sizer/LoanSizer'
 
 describe('LoanSizer', () => {
@@ -83,7 +83,8 @@ describe('LoanSizer', () => {
     expect(
       screen.getByRole('region', { name: /^advanced scenarios$/i }),
     ).toBeInTheDocument()
-    expect(screen.getByLabelText(/roof removal/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/roof line removal/i)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/^roof removal$/i)).not.toBeInTheDocument()
     expect(screen.getByLabelText(/load-bearing wall removal/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/permits approved or imminent/i)).toBeDisabled()
     expect(screen.getByLabelText(/non-warrantable condo/i)).toBeInTheDocument()
@@ -108,6 +109,10 @@ describe('LoanSizer', () => {
     expect(
       screen.queryByText(/tier and product caps after all adjustments/i),
     ).not.toBeInTheDocument()
+    expect(allowable).toHaveTextContent(/Total LTC\s*90%/)
+    expect(allowable).toHaveTextContent(/Total LTARV\s*75%/)
+    expect(allowable).toHaveTextContent(/% of Purchase Price Financed\s*85%/)
+    expect(allowable).not.toHaveTextContent(/95%/)
   })
 
   it('derives financial outputs from requested purchase and construction percentages', async () => {
@@ -174,9 +179,31 @@ describe('LoanSizer', () => {
     expect(within(financialOutputs).getByText('$100,000')).toBeInTheDocument()
   })
 
+  it('adds broker rate spread to the final rate and payment', async () => {
+    const user = userEvent.setup()
+    render(<LoanSizer />)
+    const brokerAddOn = screen.getByLabelText(/broker ysp/i)
+    expect(screen.queryByLabelText(/broker rate add-on/i)).not.toBeInTheDocument()
+
+    await user.clear(brokerAddOn)
+    await user.type(brokerAddOn, '1.25')
+
+    const financialOutputs = screen.getByRole('region', {
+      name: /^financial outputs$/i,
+    })
+    expect(within(financialOutputs).getByText('10.00%')).toBeInTheDocument()
+
+    const borrowerOutputs = screen.getByRole('region', {
+      name: /^borrower outputs$/i,
+    })
+    expect(within(borrowerOutputs).getByText('$3,750')).toBeInTheDocument()
+  })
+
   it('renders closing cost inputs and secondary borrower outputs without helper copy', () => {
     render(<LoanSizer />)
     expect(screen.getByLabelText(/broker points/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/broker ysp/i)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/broker rate add-on/i)).not.toBeInTheDocument()
     expect(screen.getByLabelText(/underwriting fee/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/attorney fee/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/appraisal fee/i)).toBeInTheDocument()
@@ -197,10 +224,41 @@ describe('LoanSizer', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('has a disabled Generate term sheet button', () => {
+  it('submits private deal logs without rendering a public log list', async () => {
+    const user = userEvent.setup()
+    const originalFetch = globalThis.fetch
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true, log: { id: 'log_123' } }),
+    })
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+
     render(<LoanSizer />)
-    const btn = screen.getByRole('button', { name: /generate term sheet/i })
-    expect(btn).toBeDisabled()
+    expect(screen.queryByLabelText(/log type/i)).not.toBeInTheDocument()
+    await user.type(
+      screen.getByLabelText(/notes/i),
+      'Construction funding should be reviewed.',
+    )
+    await user.click(
+      screen.getByRole('button', { name: /log deal \/ send feedback/i }),
+    )
+
+    expect(
+      await screen.findByText(/deal log saved for internal review/i),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/recent submissions/i)).not.toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/deal-logs',
+      expect.objectContaining({ method: 'POST' }),
+    )
+    const [, init] = fetchMock.mock.calls[0]
+    const body = JSON.parse(String((init as RequestInit).body))
+    expect(body.logType).toBeUndefined()
+    expect(body.notes).toBe('Construction funding should be reviewed.')
+    expect(body.inputs.purchasePriceOrAsIsValue).toBe(500_000)
+    expect(body.outputs.purchaseMoneyLoan).toBe(450_000)
+
+    globalThis.fetch = originalFetch
   })
 
   it('renders assumptions section and hides messages when no alerts', () => {
@@ -218,7 +276,7 @@ describe('LoanSizer', () => {
       screen.getByLabelText(/guarantor experience/i),
       '0-2',
     )
-    await user.click(screen.getByLabelText(/roof removal/i))
+    await user.click(screen.getByLabelText(/roof line removal/i))
     const messages = screen.getByRole('region', { name: /^messages$/i })
     expect(
       within(messages).getByText(/guc is not available for the silver/i),

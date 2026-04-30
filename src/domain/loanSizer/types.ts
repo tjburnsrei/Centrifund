@@ -36,6 +36,7 @@ export interface LoanSizerInputs {
   requestedPurchasePriceFinancedPct?: number | null
   requestedConstructionFinancedPct?: number | null
   requestedDay1LoanAmount: number | null
+  brokerRateAddOnPct?: number | null
   permitsApprovedOrImminent?: boolean
   roofRemoval?: boolean
   wallRemoval?: boolean
@@ -58,6 +59,7 @@ export interface LoanSizerOutputs {
   estimatedTier: Tier | null
   profitabilityResult: ProfitabilityResult | null
   baseRate: number | null
+  programRate: number | null
   finalRate: number | null
   maxDay1Loan: number | null
   maxFinancedBudget: number | null
@@ -84,9 +86,14 @@ export interface LoanSizerOutputs {
   maxRehabLtcPct: number | null
   maxTotalLtcPct: number | null
   maxArvLtvPct: number | null
+  guideInitialLtcPct: number | null
+  guideRehabLtcPct: number | null
+  guideTotalLtcPct: number | null
+  guideArvLtvPct: number | null
   purchaseMoneyLoan: number | null
   rehabLoan: number | null
   termMonths: number | null
+  brokerRateAddOnPct: number | null
   downPaymentNeeded: number | null
   estimatedCashToCoverClosing: number | null
   /** Interest-only monthly payment on the requested Day 1 loan. */
@@ -228,6 +235,7 @@ export interface RateSheetConfig {
   }
   leverage: {
     matrix: Record<Tier, Record<ProjectType, LeverageMatrixCellConfig>>
+    guideTotalLtcCapByTier: Record<Tier, number>
     purchaseBonusPp: number
     lowRehabRatioThreshold: number
     smallDealLowRehabRatioThreshold: number

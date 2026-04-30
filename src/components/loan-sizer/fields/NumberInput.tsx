@@ -1,4 +1,4 @@
-import { forwardRef } from 'react'
+import { forwardRef, useState } from 'react'
 import { cn } from '../../../lib/cn'
 import { textLikeInputClassName } from '../fieldClasses'
 
@@ -17,11 +17,25 @@ export interface NumberInputProps
 
 export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
   function NumberInput(
-    { label, description, error, value, onValueChange, className, inputId, disabled, ...rest },
+    {
+      label,
+      description,
+      error,
+      value,
+      onValueChange,
+      className,
+      inputId,
+      disabled,
+      onBlur,
+      onFocus,
+      ...rest
+    },
     ref,
   ) {
-    const display =
-      value === null || Number.isNaN(value) ? '' : String(value)
+    const formatValue = (n: number | null) =>
+      n === null || Number.isNaN(n) ? '' : String(n)
+    const [draft, setDraft] = useState<string | null>(null)
+    const display = draft ?? formatValue(value)
 
     return (
       <div className={cn('flex flex-col gap-1', className)}>
@@ -56,6 +70,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
           value={display}
           onChange={(e) => {
             const raw = e.target.value.trim()
+            setDraft(e.target.value)
             if (raw === '') {
               onValueChange(null)
               return
@@ -66,6 +81,14 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
               return
             }
             onValueChange(n)
+          }}
+          onFocus={(e) => {
+            setDraft(formatValue(value))
+            onFocus?.(e)
+          }}
+          onBlur={(e) => {
+            setDraft(null)
+            onBlur?.(e)
           }}
           {...rest}
         />

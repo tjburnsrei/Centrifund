@@ -351,6 +351,17 @@ describe('calculateLoanSizerOutputs', () => {
     )
   })
 
+  it('adds broker rate add-on to the final rate', () => {
+    const out = calculateLoanSizerOutputs(
+      baseInputs({
+        brokerRateAddOnPct: 1.25,
+      }),
+    )
+    expect(out.programRate).toBeCloseTo(9.49, 4)
+    expect(out.finalRate).toBeCloseTo(10.74, 4)
+    expect(out.brokerRateAddOnPct).toBe(1.25)
+  })
+
   it('derives requested loan dollars from requested leverage percentages', () => {
     const out = calculateLoanSizerOutputs(
       baseInputs({
@@ -391,6 +402,36 @@ describe('calculateLoanSizerOutputs', () => {
       4,
     )
     expect(out.maxTotalLtcPct ?? 0).toBeLessThan(95)
+  })
+
+  it('exposes conservative guide leverage without rare conditional total LTC expectations', () => {
+    const out = calculateLoanSizerOutputs(
+      baseInputs({
+        propertyState: 'CA',
+        guarantorExperience: '5+',
+        purchasePriceOrAsIsValue: 500_000,
+        projectBudget: 100_000,
+        estimatedArv: 800_000,
+      }),
+    )
+    expect(out.guideInitialLtcPct).toBe(85)
+    expect(out.guideRehabLtcPct).toBe(100)
+    expect(out.guideTotalLtcPct).toBe(90)
+    expect(out.guideArvLtvPct).toBe(75)
+    expect(out.guideTotalLtcPct).toBeLessThan(95)
+  })
+
+  it('caps guide total LTC by borrower tier', () => {
+    const out = calculateLoanSizerOutputs(
+      baseInputs({
+        propertyState: 'CA',
+        guarantorExperience: '3-4',
+        purchasePriceOrAsIsValue: 500_000,
+        projectBudget: 100_000,
+        estimatedArv: 800_000,
+      }),
+    )
+    expect(out.guideTotalLtcPct).toBe(85)
   })
 
   it('caps construction financing from total program limits and purchase financing', () => {
@@ -474,6 +515,7 @@ describe('calculateLoanSizerOutputs', () => {
     const out = calculateLoanSizerOutputs(baseInputs())
     const nums: (number | null)[] = [
       out.baseRate,
+      out.programRate,
       out.finalRate,
       out.maxDay1Loan,
       out.maxFinancedBudget,
@@ -488,9 +530,14 @@ describe('calculateLoanSizerOutputs', () => {
       out.maxRehabLtcPct,
       out.maxTotalLtcPct,
       out.maxArvLtvPct,
+      out.guideInitialLtcPct,
+      out.guideRehabLtcPct,
+      out.guideTotalLtcPct,
+      out.guideArvLtvPct,
       out.purchaseMoneyLoan,
       out.rehabLoan,
       out.termMonths,
+      out.brokerRateAddOnPct,
       out.estimatedMonthlyPayment,
       out.downPaymentNeeded,
       out.estimatedCashToCoverClosing,

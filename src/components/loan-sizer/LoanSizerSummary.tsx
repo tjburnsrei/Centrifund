@@ -20,7 +20,7 @@ export function AllowableLeverageCard({ outputs }: OutputCardsProps) {
         <div className="flex flex-col gap-1">
           <dt className="text-xs font-medium text-text-secondary">Total LTC</dt>
           <dd className="text-lg font-semibold tabular-nums text-text-primary">
-            {formatWholePercent(outputs.maxTotalLtcPct)}
+            {formatWholePercent(outputs.guideTotalLtcPct)}
           </dd>
         </div>
         <div className="flex flex-col gap-1">
@@ -28,7 +28,7 @@ export function AllowableLeverageCard({ outputs }: OutputCardsProps) {
             Total LTARV
           </dt>
           <dd className="text-lg font-semibold tabular-nums text-text-primary">
-            {formatWholePercent(outputs.maxArvLtvPct)}
+            {formatWholePercent(outputs.guideArvLtvPct)}
           </dd>
         </div>
         <div className="flex flex-col gap-1">
@@ -36,7 +36,7 @@ export function AllowableLeverageCard({ outputs }: OutputCardsProps) {
             % of Purchase Price Financed
           </dt>
           <dd className="text-lg font-semibold tabular-nums text-text-primary">
-            {formatWholePercent(outputs.maxInitialLtcPct)}
+            {formatWholePercent(outputs.guideInitialLtcPct)}
           </dd>
         </div>
         <div className="flex flex-col gap-1">
@@ -44,7 +44,7 @@ export function AllowableLeverageCard({ outputs }: OutputCardsProps) {
             % of Construction Financed
           </dt>
           <dd className="text-lg font-semibold tabular-nums text-text-primary">
-            {formatWholePercent(outputs.maxRehabLtcPct)}
+            {formatWholePercent(outputs.guideRehabLtcPct)}
           </dd>
         </div>
       </dl>

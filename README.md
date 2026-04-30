@@ -29,6 +29,19 @@ npm run build
 npm run preview
 ```
 
+## Deal logging
+
+Deal / feedback logging is POST-only and private to the database. Public users
+can submit scenarios, but there is no public log viewer in the app.
+
+To enable it in production:
+
+1. Add a Neon Postgres database through the Vercel Marketplace.
+2. Add the provided `DATABASE_URL` environment variable to the Vercel project.
+3. Deploy the app. The API creates `deal_logs` automatically if it is missing.
+
+The reference schema lives in `database/deal_logs.sql`.
+
 ## File structure
 
 ```text

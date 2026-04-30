@@ -51,7 +51,7 @@ export const FICO_BAND_OPTIONS: ReadonlyArray<{
     value: '740+',
     label: '740 or higher',
     description:
-      'Unrestricted access to the maximum 90% initial / 95% total LTC for Platinum Light Rehab.',
+      'Strongest borrower profile for the published leverage and rate tiers.',
   },
 ]
 
@@ -71,6 +71,7 @@ export const loanSizerDefaultValues: LoanSizerFormValues = {
   requestedPurchasePriceFinancedPct: 90,
   requestedConstructionFinancedPct: 100,
   requestedDay1LoanAmount: 450_000,
+  brokerRateAddOnPct: 0,
   permitsApprovedOrImminent: false,
   roofRemoval: false,
   wallRemoval: false,
@@ -100,6 +101,7 @@ function formValuesToInputs(values: LoanSizerFormValues): LoanSizerInputs {
     requestedPurchasePriceFinancedPct: values.requestedPurchasePriceFinancedPct,
     requestedConstructionFinancedPct: values.requestedConstructionFinancedPct,
     requestedDay1LoanAmount: values.requestedDay1LoanAmount,
+    brokerRateAddOnPct: values.brokerRateAddOnPct,
     permitsApprovedOrImminent: values.permitsApprovedOrImminent ?? false,
     roofRemoval: values.roofRemoval ?? false,
     wallRemoval: values.wallRemoval ?? false,

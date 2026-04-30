@@ -187,6 +187,11 @@ export const RATE_SHEET_CONFIG: RateSheetConfig = {
   },
 
   leverage: {
+    guideTotalLtcCapByTier: {
+      Platinum: 90,
+      Gold: 85,
+      Silver: 80,
+    },
     matrix: {
       Platinum: {
         'Bridge No Rehab': bridgeNoRehab(75, 'PLATINUM_BRIDGE_INITIAL_75'),

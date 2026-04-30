@@ -4,6 +4,7 @@ import {
   LoanSizerForm,
   LoanSizerRequestedLeverageForm,
 } from './LoanSizerForm'
+import { LoanSizerDealLogForm } from './LoanSizerDealLogForm'
 import {
   AllowableLeverageCard,
   AssumptionsCard,
@@ -19,7 +20,7 @@ function roundedPercent(value: number | null): number | null {
 }
 
 export function LoanSizer() {
-  const { form, outputs } = useLoanSizer()
+  const { form, outputs, values } = useLoanSizer()
   const hasAlerts = outputs.warnings.length > 0
   const applyMaxRequestedLeverage = () => {
     const updates = [
@@ -75,26 +76,15 @@ export function LoanSizer() {
 
         <FinancialOutputsCard outputs={outputs} />
 
-        <SectionCard
-          id="closing-costs"
-          title="Closing costs"
-        >
+        <SectionCard id="closing-costs" title="Broker pricing and closing costs">
           <LoanSizerClosingCostsForm form={form} />
         </SectionCard>
 
         <BorrowerOutputsCard outputs={outputs} />
 
-        <div className="flex justify-end">
-          <button
-            type="button"
-            disabled
-            title="Coming soon"
-            aria-disabled="true"
-            className="inline-flex items-center justify-center rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Generate term sheet
-          </button>
-        </div>
+        <SectionCard id="deal-feedback" title="Log deal / send feedback">
+          <LoanSizerDealLogForm values={values} outputs={outputs} />
+        </SectionCard>
 
         <AssumptionsCard outputs={outputs} />
       </div>

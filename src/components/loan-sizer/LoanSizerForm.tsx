@@ -227,7 +227,7 @@ export function LoanSizerForm({ form }: LoanSizerFormProps) {
             render={({ field }) => (
               <CheckboxField
                 inputId="roofRemoval"
-                label="Roof removal"
+                label="Roof line removal"
                 checked={field.value ?? false}
                 onChange={field.onChange}
                 onBlur={field.onBlur}
@@ -476,6 +476,22 @@ export function LoanSizerClosingCostsForm({
             inputId="brokerPoints"
             label="Broker points (%)"
             error={e.brokerPointsPct?.message}
+            value={field.value ?? null}
+            onValueChange={field.onChange}
+            onBlur={field.onBlur}
+            name={field.name}
+            ref={field.ref}
+          />
+        )}
+      />
+      <Controller
+        name="brokerRateAddOnPct"
+        control={control}
+        render={({ field }) => (
+          <NumberInput
+            inputId="brokerRateAddOnPct"
+            label="Broker YSP (%)"
+            error={e.brokerRateAddOnPct?.message}
             value={field.value ?? null}
             onValueChange={field.onChange}
             onBlur={field.onBlur}

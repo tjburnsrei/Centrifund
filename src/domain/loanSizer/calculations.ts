@@ -21,6 +21,7 @@ import {
   getBaseLeverage,
   getBaseRate,
   getGucPermitsInitialLtvBonusPp,
+  getGuideLeverage,
   getMostRestrictiveNegativeAdjustment,
   getPositiveLeverageBonusPp,
   isGroundUpEligibleForTier,
@@ -326,6 +327,12 @@ export function calculateLoanSizerOutputs(
   const budget = inputs.projectBudget
   const fico = inputs.qualifyingFico
   const requestedDay1Raw = inputs.requestedDay1LoanAmount
+  const brokerRateAddOnPct =
+    inputs.brokerRateAddOnPct !== null &&
+    inputs.brokerRateAddOnPct !== undefined &&
+    Number.isFinite(inputs.brokerRateAddOnPct)
+      ? Math.max(0, inputs.brokerRateAddOnPct)
+      : 0
   const requestedPurchasePriceFinancedPct =
     inputs.requestedPurchasePriceFinancedPct ?? null
   const requestedConstructionFinancedPct =
@@ -420,6 +427,10 @@ export function calculateLoanSizerOutputs(
           gucPermitsInitialLtvBonusPp,
           condo,
         )
+      : null
+  const guideCaps =
+    tier !== null && projectType !== null
+      ? getGuideLeverage(tier, projectType)
       : null
 
   if (projectType === 'GUC' && permits && gucPermitsInitialLtvBonusPp > 0) {
@@ -651,6 +662,7 @@ export function calculateLoanSizerOutputs(
       : null
 
   let baseRate: number | null = null
+  let programRate: number | null = null
   let finalRate: number | null = null
   if (
     tier &&
@@ -659,7 +671,8 @@ export function calculateLoanSizerOutputs(
     baseRate = getBaseRate(tier, pointsChoice)
     if (baseRate !== null) {
       const addOns = getApplicableRateAddOns(projectType, tier)
-      finalRate = applyFinalRateAdjustments(baseRate, addOns)
+      programRate = applyFinalRateAdjustments(baseRate, addOns)
+      finalRate = programRate + brokerRateAddOnPct
     }
   }
 
@@ -712,6 +725,7 @@ export function calculateLoanSizerOutputs(
     estimatedTier: tier,
     profitabilityResult,
     baseRate,
+    programRate,
     finalRate,
     maxDay1Loan,
     maxFinancedBudget,
@@ -745,9 +759,14 @@ export function calculateLoanSizerOutputs(
     maxRehabLtcPct: allowableConstructionFinancedPct,
     maxTotalLtcPct: allowableTotalLtcPct,
     maxArvLtvPct: allowableTotalLtarvPct,
+    guideInitialLtcPct: guideCaps?.maxInitialLtcPct ?? null,
+    guideRehabLtcPct: guideCaps?.maxRehabLtcPct ?? null,
+    guideTotalLtcPct: guideCaps?.maxTotalLtcPct ?? null,
+    guideArvLtvPct: guideCaps?.maxArvLtvPct ?? null,
     purchaseMoneyLoan: requestedDay1,
     rehabLoan: req.requestedFinancedBudget,
     termMonths: LOAN_TERM_MONTHS,
+    brokerRateAddOnPct,
     downPaymentNeeded,
     estimatedCashToCoverClosing: cashToCoverClosing,
     estimatedMonthlyPayment,

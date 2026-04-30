@@ -213,6 +213,28 @@ export function getBaseLeverage(
   }
 }
 
+export function getGuideLeverage(
+  tier: Tier,
+  projectType: ProjectType,
+): LeverageCaps | null {
+  const cell = RATE_SHEET_CONFIG.leverage.matrix[tier][projectType]
+  if (!cell) return null
+
+  const row = leverageMatrixCellToRowConfig(cell)
+  const tierTotalCap =
+    RATE_SHEET_CONFIG.leverage.guideTotalLtcCapByTier[tier]
+
+  return {
+    maxInitialLtcPct: row.initialLtcBasePct,
+    maxRehabLtcPct: row.maxRehabLtcPct,
+    maxTotalLtcPct:
+      row.maxTotalLtcPct === null
+        ? null
+        : Math.min(row.maxTotalLtcPct, tierTotalCap),
+    maxArvLtvPct: row.maxArvLtvPct,
+  }
+}
+
 export function getPositiveLeverageBonusPp(
   inputs: Pick<
     LoanSizerInputs,

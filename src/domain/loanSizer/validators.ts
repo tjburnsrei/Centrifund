@@ -86,6 +86,19 @@ const nullablePercent = z
     'Must be between 0 and 10',
   )
 
+const nullableBrokerRateAddOnPercent = z
+  .union([z.number(), z.null(), z.undefined()])
+  .transform((v) => {
+    if (v === undefined || v === null || Number.isNaN(v)) {
+      return null
+    }
+    return v
+  })
+  .refine(
+    (v) => v === null || (v >= 0 && v <= 5),
+    'Must be between 0 and 5',
+  )
+
 const nullableRequestedLeveragePercent = z
   .union([z.number(), z.null(), z.undefined()])
   .transform((v) => {
@@ -136,6 +149,7 @@ export const loanSizerFormSchema = z
     requestedPurchasePriceFinancedPct: nullableRequestedLeveragePercent,
     requestedConstructionFinancedPct: nullableRequestedLeveragePercent,
     requestedDay1LoanAmount: nullableCurrency,
+    brokerRateAddOnPct: nullableBrokerRateAddOnPercent,
     permitsApprovedOrImminent: z.boolean().optional(),
     roofRemoval: z.boolean().optional(),
     wallRemoval: z.boolean().optional(),
