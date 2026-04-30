@@ -32,7 +32,8 @@ npm run preview
 ## Deal logging
 
 Deal / feedback logging is POST-only and private to the database. Public users
-can submit scenarios, but there is no public log viewer in the app.
+can submit scenarios with a property street address, but there is no public log
+viewer in the app.
 
 To enable it in production:
 

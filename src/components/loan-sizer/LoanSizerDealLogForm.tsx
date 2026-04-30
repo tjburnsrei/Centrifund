@@ -16,6 +16,7 @@ export function LoanSizerDealLogForm({
   values,
   outputs,
 }: LoanSizerDealLogFormProps) {
+  const [streetAddress, setStreetAddress] = useState('')
   const [notes, setNotes] = useState('')
   const [submitState, setSubmitState] = useState<SubmitState>('idle')
   const [message, setMessage] = useState<string | null>(null)
@@ -33,6 +34,7 @@ export function LoanSizerDealLogForm({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          streetAddress,
           notes,
           inputs: values,
           outputs,
@@ -43,6 +45,7 @@ export function LoanSizerDealLogForm({
         throw new Error('Unable to save this deal log.')
       }
 
+      setStreetAddress('')
       setNotes('')
       setSubmitState('success')
       setMessage('Deal log saved for internal review.')
@@ -57,6 +60,24 @@ export function LoanSizerDealLogForm({
   return (
     <form className="space-y-3" onSubmit={handleSubmit}>
       <div className="grid gap-4">
+        <div className="flex flex-col gap-1">
+          <label
+            htmlFor="dealLogStreetAddress"
+            className="text-sm font-medium text-text-primary"
+          >
+            Street address
+          </label>
+          <input
+            id="dealLogStreetAddress"
+            type="text"
+            value={streetAddress}
+            onChange={(event) => setStreetAddress(event.target.value)}
+            maxLength={300}
+            placeholder="Property street address"
+            autoComplete="street-address"
+            className={textLikeInputClassName('px-3 py-2')}
+          />
+        </div>
         <div className="flex flex-col gap-1">
           <label
             htmlFor="dealLogNotes"
@@ -76,8 +97,8 @@ export function LoanSizerDealLogForm({
         </div>
       </div>
       <p className="text-xs text-text-secondary">
-        Do not include borrower names, emails, phone numbers, addresses, or
-        other sensitive personal information.
+        Street address is saved with this log. Do not include borrower names,
+        emails, phone numbers, or other sensitive personal information.
       </p>
       <div className="flex flex-wrap items-center justify-between gap-3">
         {message ? (

@@ -7,6 +7,7 @@ import {
 describe('deal log helpers', () => {
   it('accepts a valid private deal log payload', () => {
     const parsed = dealLogRequestSchema.safeParse({
+      streetAddress: ' 123 Test St ',
       notes: ' Review total leverage. ',
       inputs: {
         purchasePriceOrAsIsValue: 500_000,
@@ -27,6 +28,7 @@ describe('deal log helpers', () => {
     expect(parsed.success).toBe(true)
     if (!parsed.success) return
     expect(parsed.data.logType).toBe('deal')
+    expect(parsed.data.streetAddress).toBe('123 Test St')
     expect(parsed.data.notes).toBe('Review total leverage.')
   })
 
@@ -34,6 +36,7 @@ describe('deal log helpers', () => {
     const parsed = dealLogRequestSchema.safeParse({
       logType: 'public_log',
       notes: 'x'.repeat(2001),
+      streetAddress: 'x'.repeat(301),
       inputs: {},
       outputs: {},
     })
@@ -44,6 +47,7 @@ describe('deal log helpers', () => {
   it('builds summary columns without requiring sensitive personal fields', () => {
     const parsed = dealLogRequestSchema.parse({
       logType: 'deal',
+      streetAddress: '123 Test St',
       notes: '',
       inputs: {
         purchasePriceOrAsIsValue: 500_000,
@@ -63,6 +67,7 @@ describe('deal log helpers', () => {
 
     const record = buildDealLogRecord(parsed)
 
+    expect(record.streetAddress).toBe('123 Test St')
     expect(record.purchasePrice).toBe(500_000)
     expect(record.rehabBudget).toBe(100_000)
     expect(record.estimatedArv).toBe(800_000)

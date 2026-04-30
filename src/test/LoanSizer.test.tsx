@@ -235,6 +235,7 @@ describe('LoanSizer', () => {
 
     render(<LoanSizer />)
     expect(screen.queryByLabelText(/log type/i)).not.toBeInTheDocument()
+    await user.type(screen.getByLabelText(/street address/i), '123 Test St')
     await user.type(
       screen.getByLabelText(/notes/i),
       'Construction funding should be reviewed.',
@@ -254,6 +255,7 @@ describe('LoanSizer', () => {
     const [, init] = fetchMock.mock.calls[0]
     const body = JSON.parse(String((init as RequestInit).body))
     expect(body.logType).toBeUndefined()
+    expect(body.streetAddress).toBe('123 Test St')
     expect(body.notes).toBe('Construction funding should be reviewed.')
     expect(body.inputs.purchasePriceOrAsIsValue).toBe(500_000)
     expect(body.outputs.purchaseMoneyLoan).toBe(450_000)

@@ -2,6 +2,7 @@ create table if not exists deal_logs (
   id uuid primary key default gen_random_uuid(),
   created_at timestamptz not null default now(),
   log_type text not null,
+  street_address text not null default '',
   notes text not null default '',
   inputs_json jsonb not null,
   outputs_json jsonb not null,

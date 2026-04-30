@@ -19,6 +19,13 @@ export const DEAL_LOG_TYPE_OPTIONS: ReadonlyArray<{
 
 export const dealLogRequestSchema = z.object({
   logType: z.enum(DEAL_LOG_TYPES).optional().default('deal'),
+  streetAddress: z
+    .union([z.string(), z.null(), z.undefined()])
+    .transform((v) => (v ?? '').trim())
+    .refine(
+      (v) => v.length <= 300,
+      'Street address must be 300 characters or less',
+    ),
   notes: z
     .union([z.string(), z.null(), z.undefined()])
     .transform((v) => (v ?? '').trim())
@@ -31,6 +38,7 @@ export type DealLogRequest = z.infer<typeof dealLogRequestSchema>
 
 export interface DealLogRecord {
   logType: DealLogType
+  streetAddress: string
   notes: string
   inputsJson: string
   outputsJson: string
@@ -67,6 +75,7 @@ function stringFromRecord(
 export function buildDealLogRecord(payload: DealLogRequest): DealLogRecord {
   return {
     logType: payload.logType,
+    streetAddress: payload.streetAddress,
     notes: payload.notes,
     inputsJson: JSON.stringify(payload.inputs),
     outputsJson: JSON.stringify(payload.outputs),

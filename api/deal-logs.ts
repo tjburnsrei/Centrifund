@@ -24,6 +24,7 @@ async function ensureDealLogsTable(
       id uuid primary key default gen_random_uuid(),
       created_at timestamptz not null default now(),
       log_type text not null,
+      street_address text not null default '',
       notes text not null default '',
       inputs_json jsonb not null,
       outputs_json jsonb not null,
@@ -38,6 +39,10 @@ async function ensureDealLogsTable(
       project_type text,
       tier text
     )
+  `
+  await sql`
+    alter table deal_logs
+      add column if not exists street_address text not null default ''
   `
 }
 
@@ -72,6 +77,7 @@ export default async function handler(
     const rows = await sql`
       insert into deal_logs (
         log_type,
+        street_address,
         notes,
         inputs_json,
         outputs_json,
@@ -88,6 +94,7 @@ export default async function handler(
       )
       values (
         ${record.logType},
+        ${record.streetAddress},
         ${record.notes},
         ${record.inputsJson}::jsonb,
         ${record.outputsJson}::jsonb,
