@@ -3,7 +3,7 @@ import { neon } from '@neondatabase/serverless'
 import {
   buildDealLogRecord,
   dealLogRequestSchema,
-} from '../src/domain/loanSizer/dealLog'
+} from '../src/domain/loanSizer/dealLog.js'
 
 interface ApiRequest {
   method?: string
