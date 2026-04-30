@@ -41,6 +41,11 @@ To enable it in production:
 2. Add the provided `DATABASE_URL` environment variable to the Vercel project.
 3. Deploy the app. The API creates `deal_logs` automatically if it is missing.
 
+If `DATABASE_URL` is not configured, production submissions are accepted and
+written to Vercel runtime logs with the `deal_log_submission` marker. If the API
+is unavailable during local testing, the browser saves a local CSV-exportable
+copy.
+
 The reference schema lives in `database/deal_logs.sql`.
 
 ## File structure

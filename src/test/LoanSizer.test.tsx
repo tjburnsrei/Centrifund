@@ -263,6 +263,35 @@ describe('LoanSizer', () => {
     globalThis.fetch = originalFetch
   })
 
+  it('saves a local CSV-exportable copy when the deal log API is unavailable', async () => {
+    const user = userEvent.setup()
+    const originalFetch = globalThis.fetch
+    window.localStorage.clear()
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error('offline'))
+
+    render(<LoanSizer />)
+    await user.type(screen.getByLabelText(/street address/i), '456 Local Ave')
+    await user.type(screen.getByLabelText(/notes/i), 'Local fallback test.')
+    await user.click(
+      screen.getByRole('button', { name: /log deal \/ send feedback/i }),
+    )
+
+    expect(
+      await screen.findByText(/deal log saved locally in this browser/i),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /download local csv/i }),
+    ).toBeInTheDocument()
+    const localLogs = JSON.parse(
+      String(window.localStorage.getItem('centrifundDealLogs')),
+    )
+    expect(localLogs[0].streetAddress).toBe('456 Local Ave')
+    expect(localLogs[0].notes).toBe('Local fallback test.')
+
+    globalThis.fetch = originalFetch
+    window.localStorage.clear()
+  })
+
   it('renders assumptions section and hides messages when no alerts', () => {
     render(<LoanSizer />)
     expect(screen.queryByRole('region', { name: /^messages$/i })).toBeNull()

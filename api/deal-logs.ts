@@ -16,6 +16,38 @@ interface ApiResponse {
   json(body: unknown): void
 }
 
+function writeFallbackLog(record: ReturnType<typeof buildDealLogRecord>): {
+  id: string
+  createdAt: string
+} {
+  const id = `log_${Date.now()}`
+  const createdAt = new Date().toISOString()
+  console.info(
+    'deal_log_submission',
+    JSON.stringify({
+      id,
+      created_at: createdAt,
+      storage: 'vercel_logs',
+      log_type: record.logType,
+      street_address: record.streetAddress,
+      notes: record.notes,
+      purchase_price: record.purchasePrice,
+      rehab_budget: record.rehabBudget,
+      estimated_arv: record.estimatedArv,
+      requested_purchase_pct: record.requestedPurchasePct,
+      requested_construction_pct: record.requestedConstructionPct,
+      purchase_money_loan: record.purchaseMoneyLoan,
+      rehab_loan: record.rehabLoan,
+      final_rate: record.finalRate,
+      project_type: record.projectType,
+      tier: record.tier,
+      inputs_json: record.inputsJson,
+      outputs_json: record.outputsJson,
+    }),
+  )
+  return { id, createdAt }
+}
+
 async function ensureDealLogsTable(
   sql: ReturnType<typeof neon>,
 ): Promise<void> {
@@ -64,16 +96,24 @@ export default async function handler(
   }
 
   const databaseUrl = env.DATABASE_URL
+  const record = buildDealLogRecord(parsed.data)
   if (!databaseUrl) {
-    return response.status(503).json({
-      error: 'Deal logging is not configured. Add DATABASE_URL in Vercel.',
+    const fallbackLog = writeFallbackLog(record)
+    return response.status(201).json({
+      ok: true,
+      log: {
+        id: fallbackLog.id,
+        created_at: fallbackLog.createdAt,
+        storage: 'vercel_logs',
+      },
+      warning:
+        'Deal log saved to Vercel runtime logs because DATABASE_URL is not configured.',
     })
   }
 
   try {
     const sql = neon(databaseUrl)
     await ensureDealLogsTable(sql)
-    const record = buildDealLogRecord(parsed.data)
     const rows = await sql`
       insert into deal_logs (
         log_type,
