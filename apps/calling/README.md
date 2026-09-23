@@ -47,7 +47,7 @@ Open in Safari; optionally use Share → Add to Home Screen. Tap **Save to iPhon
 
 ## Reliability and recovery
 
-A local IndexedDB draft is bound to one contact and one server draft ID. Server inputs are persisted before AI processing. Processing leases and revision checks prevent stale results. Final save appends the call and changes the confirmed follow-up in a single transaction; retrying a saved draft returns the same activity.
+A local IndexedDB draft is bound to one contact and one server draft ID. Server inputs are persisted before AI processing. Processing leases and revision checks prevent stale results. Final save appends the call and changes the confirmed follow-up in a single transaction; retrying a saved draft returns the same activity. A follow-up changed by another saved call must be reviewed before an older draft can replace or complete it.
 
 Only completed or emitted audio chunks can be recovered from local storage; iOS may interrupt an active recording when the app is backgrounded. Review interrupted audio before saving. A cleared browser cache or a lost phone can remove notes that have not reached the server.
 

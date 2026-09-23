@@ -8,9 +8,9 @@ The SQL schema separates contact identity, access grants, private business notes
 
 ## Verification completed
 
-- Calling app: lint, TypeScript/production build, and 39 tests passed.
+- Calling app: lint, TypeScript/production build, and 40 tests passed.
 - Calculator: lint, production build, and 107 tests passed.
-- Database tests exercise sharing and private-note isolation, unauthorized requests and audio, stale revisions, retry-safe saves, phone flags, opt-outs, queue ordering, import collisions, cleanup and local export/restore.
+- Database tests exercise sharing and private-note isolation, unauthorized requests and audio, stale revisions, concurrent follow-up changes, retry-safe saves, phone flags, opt-outs, queue ordering, import collisions, cleanup and local export/restore.
 - Provider contract tests use synthetic responses: transcript retention after AI failure and human-selected outcomes/dates are covered. These are not live provider tests.
 - Chrome browser: synthetic login, note entry, refresh recovery, dated follow-up save, advance to next contact and saved history verified through the real app API and local database functions.
 - Narrow-screen layout checked at a measured 391 CSS pixels; no horizontal overflow or application console errors. This is desktop Chrome, not physical iPhone Safari.

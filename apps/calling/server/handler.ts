@@ -13,7 +13,7 @@ const actionSchemas: Record<string, z.ZodType> = {
     'draft.ensure': z.object({ id: uuid, contactId: uuid }).strict(),
     'draft.get': z.object({ id: uuid }).strict(),
     'draft.update': z.object({ id: uuid, revision, mutationId: uuid, rawText: z.string().max(20000), fields: fieldSchema, phoneId: uuid.nullable() }).strict(),
-    'draft.save': z.object({ id: uuid, revision, completeFollowUp: z.boolean() }).strict(),
+    'draft.save': z.object({ id: uuid, revision, completeFollowUp: z.boolean(), expectedFollowUp: z.object({nextAction:z.string().nullable(),followUpDate:z.string().nullable(),lastCalledAt:z.string().nullable()}).strict() }).strict(),
     'draft.discard': z.object({ id: uuid }).strict(),
     'contact.addPhone': z.object({ contactId: uuid, value: z.string().trim().min(7).max(50).refine(s => { const n = s.replace(/\D/g, ''); return n.length >= 7 && n.length <= 15; }) }).strict(),
     'contact.phoneFlag': z.object({ contactId: uuid, phoneId: uuid, isBad: z.boolean() }).strict(),

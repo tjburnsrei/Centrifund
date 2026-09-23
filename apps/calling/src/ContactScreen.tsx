@@ -12,12 +12,13 @@ function RecordingPlayer({ audio }: {
         element.current.src = url; return () => URL.revokeObjectURL(url); }, [audio]);
     return <audio ref={element} controls aria-label="Play your recorded notes"/>;
 }
-export function ContactScreen({ contact, role, onSaved, onRecording, onBusy }: {
+export function ContactScreen({ contact, role, onSaved, onRecording, onBusy, onRefresh }: {
     contact: Contact;
     role: string;
     onSaved: () => Promise<void>;
     onRecording: (value: boolean) => void;
     onBusy?: (value: boolean) => void;
+    onRefresh?: () => Promise<void>;
 }) {
     const key = role + ':' + contact.id;
     const [draft, setDraft] = useState<LocalDraft | null>(null), [status, setStatus] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false), [recording, setRecording] = useState(false), [transcript, setTranscript] = useState(''), [seconds, setSeconds] = useState(0);
@@ -101,7 +102,7 @@ export function ContactScreen({ contact, role, onSaved, onRecording, onBusy }: {
         setStatus('Saving…');
         const remote = await sync();
         if (remote.status !== 'saved')
-            await action('draft.save', { id: remote.id, revision: remote.revision, completeFollowUp: current.current!.completeFollowUp });
+            await action('draft.save', { id: remote.id, revision: remote.revision, completeFollowUp: current.current!.completeFollowUp, expectedFollowUp: {nextAction:contact.next_action,followUpDate:contact.follow_up_date,lastCalledAt:contact.last_called_at} });
         await finishSaved();
     });
     const generate = () => run(async () => {
@@ -144,6 +145,7 @@ export function ContactScreen({ contact, role, onSaved, onRecording, onBusy }: {
         setStatus('Draft ready — review and save');
     });
     const refresh = () => run(async () => {
+        await onRefresh?.();
         const remote = await action<Draft>('draft.get', { id: current.current!.id });
         if (remote.status === 'saved') {
             await finishSaved();

@@ -8,6 +8,7 @@ const messages: Record<string, [
 ]> = {
     UNAUTHORIZED: [401, 'Please sign in again. Your unfinished notes are still on this phone.'],
     FORBIDDEN: [403, 'Administrator access is required.'], NOT_FOUND: [404, 'This record is unavailable or no longer shared.'],
+    FOLLOWUP_CHANGED: [409, 'Another call changed the follow-up. Use Check saved draft to review the latest contact before saving.'],
     STALE: [409, 'This draft changed. Reload the saved draft before continuing.'], CLOSED: [409, 'This draft has already been closed.'],
     BUSY: [409, 'This note is still processing. Please check again shortly.'], INVALID_PHONE: [400, 'Select a phone number for this contact.'],
     OUTCOME_REQUIRED: [400, 'Choose a call outcome.'], NOTE_REQUIRED: [400, 'Add a short note about the conversation.'],

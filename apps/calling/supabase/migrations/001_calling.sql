@@ -308,6 +308,12 @@ begin
   follow_date:=nullif(fields->>'followUpDate','')::date;
   if v_outcome='callback' and follow_date is null then raise exception 'DATE_REQUIRED'; end if;
   if follow_date is not null and trim(coalesce(fields->>'nextAction',''))='' then raise exception 'ACTION_REQUIRED'; end if;
+  -- Lock shared state before comparing what the caller reviewed. History and the follow-up commit together.
+  insert into crm.contact_state(contact_id,workspace_id) values(cid,'shared') on conflict do nothing;
+  select jsonb_build_object('nextAction',s.next_action,'followUpDate',s.follow_up_date,'lastCalledAt',s.last_called_at) into v_result
+   from crm.contact_state s where s.contact_id=cid and s.workspace_id='shared' for update;
+  if v_outcome<>'do_not_call' and (coalesce(fields->>'nextAction','')<>'' or coalesce((p_args->>'completeFollowUp')::boolean,false))
+     and v_result is distinct from p_args->'expectedFollowUp' then raise exception 'FOLLOWUP_CHANGED'; end if;
   insert into crm.activities(contact_id,workspace_id,draft_id,author,summary,outcome,phone_id,next_action,follow_up_date)
   values(cid,'shared',did,case when is_admin then 'Administrator' else 'Centrifund caller' end,note,v_outcome,draft.phone_id,coalesce(fields->>'nextAction',''),follow_date) returning id into activity_id;
   insert into crm.contact_state(contact_id,workspace_id) values(cid,'shared') on conflict do nothing;

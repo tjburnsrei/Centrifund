@@ -5,9 +5,13 @@ import { randomUUID } from 'node:crypto';
 let db: PGlite;
 const caller = 'caller-token', other = 'other-token', admin = 'admin-token', version = 'v1';
 let shared: string, privateId: string, phone: string;
-const rpc = async (action: string, args: object = {}, session = caller) => (await db.query<{
-    result: any;
-}>('select public.crm_request($1,$2,$3,$4::jsonb) result', [session, version, action, JSON.stringify(args)])).rows[0].result;
+const rpc = async (action:string,args:Record<string,any>={},session=caller) => {
+ if(action==='draft.save'&&!('expectedFollowUp' in args)){
+  const result=await db.query<{result:any}>("select jsonb_build_object('nextAction',s.next_action,'followUpDate',s.follow_up_date,'lastCalledAt',s.last_called_at) result from crm.drafts d left join crm.contact_state s on s.contact_id=d.contact_id and s.workspace_id='shared' where d.id=$1",[args.id]);
+  args={...args,expectedFollowUp:result.rows[0]?.result};
+ }
+ return (await db.query<{result:any}>('select public.crm_request($1,$2,$3,$4::jsonb) result',[session,version,action,JSON.stringify(args)])).rows[0].result;
+};
 const fields = (outcome = 'interested', summary = 'Discussed a future purchase.') => ({ summary, outcome, nextAction: '', followUpDate: '' });
 async function draft(contactId = shared, session = caller) { const id = randomUUID(); await rpc('draft.ensure', { id, contactId }, session); return id; }
 async function update(id: string, values = fields(), revision = 1, session = caller, mutationId = randomUUID()) {
@@ -175,6 +179,17 @@ describe('database authorization and transactional saves', () => {
         await db.query("update crm.drafts set updated_at=now()-interval '4 hours' where id=$1", [id]);
         await db.query('select public.crm_audio_cleanup($1)', [[id]]);
         expect((await rpc('draft.get', { id })).audio_path).toBeNull();
+    });
+    it('cannot clear a follow-up changed by another saved call',async()=>{
+        const before=await rpc('contact.get',{contactId:shared});
+        const expectedFollowUp={nextAction:before.next_action,followUpDate:before.follow_up_date,lastCalledAt:before.last_called_at};
+        const id=await draft(),edited=await update(id,fields('no_answer',''));
+        await db.query("update crm.contact_state set next_action='New agreed task',follow_up_date='2026-11-01' where contact_id=$1 and workspace_id='shared'",[shared]);
+        await expect(rpc('draft.save',{id,revision:edited.revision,completeFollowUp:true,expectedFollowUp})).rejects.toThrow('FOLLOWUP_CHANGED');
+        expect((await db.query('select * from crm.activities where draft_id=$1',[id])).rows).toHaveLength(0);
+        expect((await rpc('contact.get',{contactId:shared})).next_action).toBe('New agreed task');
+        await rpc('draft.save',{id,revision:edited.revision,completeFollowUp:true});
+        expect((await rpc('contact.get',{contactId:shared})).next_action).toBeNull();
     });
     it('retains completed call history through a database export and restore', async () => {
         const before = await db.query('select count(*)::int n from crm.activities');

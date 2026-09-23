@@ -24,7 +24,8 @@ try {
   for(const outcome of ['interested','bad_number']){
    const id=randomUUID();await rpc('draft.ensure',{id,contactId:contact.id})
    const draft=await rpc('draft.update',{id,revision:1,mutationId:randomUUID(),rawText:'Synthetic rehearsal only.',phoneId:contact.phones[0].id,fields:{summary:'Synthetic rehearsal only.',outcome,nextAction:outcome==='interested'?'Synthetic follow-up':'',followUpDate:outcome==='interested'?'2026-10-01':''}})
-   await rpc('draft.save',{id,revision:draft.revision,completeFollowUp:false})
+   const current=await rpc('contact.get',{contactId:contact.id})
+   await rpc('draft.save',{id,revision:draft.revision,completeFollowUp:false,expectedFollowUp:{nextAction:current.next_action,followUpDate:current.follow_up_date,lastCalledAt:current.last_called_at}})
   }
   const second=contacts.find(c=>c.id!==contact.id)
   if(second)await db.query("insert into crm.contact_state(contact_id,workspace_id,do_not_call) values($1,'shared',true)",[second.id])
