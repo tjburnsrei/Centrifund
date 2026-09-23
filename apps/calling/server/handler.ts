@@ -1,12 +1,12 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { parseImport } from '../shared/import';
-import { contactVcard } from '../shared/vcard';
-import type { Contact } from '../shared/types';
-import { fieldSchema, processDraft } from './ai';
-import { ApiError, rpc, storage } from './db';
-import { adminAllowed, adminAuth, checkOrigin, createSession, hash, requestDb, requireAdmin, throttle, verifyPassword } from './auth';
-import { adminEnabled, setting } from './config';
+import { parseImport } from '../shared/import.js';
+import { contactVcard } from '../shared/vcard.js';
+import type { Contact } from '../shared/types.js';
+import { fieldSchema, processDraft } from './ai.js';
+import { ApiError, rpc, storage } from './db.js';
+import { adminAllowed, adminAuth, checkOrigin, createSession, hash, requestDb, requireAdmin, throttle, verifyPassword } from './auth.js';
+import { adminEnabled, setting } from './config.js';
 const uuid = z.string().uuid();
 const revision = z.number().int().positive();
 export const actionSchemas: Record<string, z.ZodType> = {

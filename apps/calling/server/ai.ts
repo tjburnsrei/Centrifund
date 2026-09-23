@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { setting } from './config';
-import { ApiError, storage } from './db';
-import { requestDb } from './auth';
-import { outcomes } from '../shared/types';
+import { setting } from './config.js';
+import { ApiError, storage } from './db.js';
+import { requestDb } from './auth.js';
+import { outcomes } from '../shared/types.js';
 export const fieldSchema = z.object({
     summary: z.string().max(5000), outcome: z.enum(['', ...Object.keys(outcomes)] as [
         string,

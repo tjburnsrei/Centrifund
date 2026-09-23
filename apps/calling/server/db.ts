@@ -1,4 +1,4 @@
-import { setting, supabaseServerKey } from './config';
+import { setting, supabaseServerKey } from './config.js';
 function databaseHeaders(): Record<string,string> {
     const key = supabaseServerKey();
     return key.startsWith('sb_secret_') ? { apikey: key } : { apikey: key, Authorization: 'Bearer ' + key };

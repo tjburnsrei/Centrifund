@@ -1,6 +1,6 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { adminAllowed, adminEnabled, isProduction, origin, setting } from './config';
-import { ApiError, rpc } from './db';
+import { adminAllowed, adminEnabled, isProduction, origin, setting } from './config.js';
+import { ApiError, rpc } from './db.js';
 export const hash = (text: string) => createHash('sha256').update(text).digest('hex');
 export const passwordVersion = () => createHmac('sha256', setting('SESSION_SECRET')).update(setting('CALLER_PASSWORD')).digest('hex');
 export function cookie(request: Request, name: string) { return request.headers.get('cookie')?.split(';').map(v => v.trim()).find(v => v.startsWith(name + '='))?.slice(name.length + 1) ?? ''; }

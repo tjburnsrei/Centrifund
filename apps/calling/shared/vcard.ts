@@ -1,4 +1,4 @@
-import type { Contact } from './types';
+import type { Contact } from './types.js';
 // vCard must not carry control bytes into Contacts.
 // eslint-disable-next-line no-control-regex
 const escape = (value: string) => value.replace(/\\/g, '\\\\').replace(/\r\n|\r|\n/g, '\\n').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '');

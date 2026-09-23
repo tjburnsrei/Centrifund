@@ -1,6 +1,6 @@
 // Local development HTTP bridge; production uses Vercel's Web Standard handler.
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { handle } from './handler';
+import { handle } from './handler.js';
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
     const chunks: Buffer[] = [];
     let size = 0;

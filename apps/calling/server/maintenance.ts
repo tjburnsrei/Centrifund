@@ -1,9 +1,9 @@
 import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
-import { hash } from './auth';
-import { rpc } from './db';
-import { parseImport } from '../shared/import';
-import { actionSchemas } from './handler';
+import { hash } from './auth.js';
+import { rpc } from './db.js';
+import { parseImport } from '../shared/import.js';
+import { actionSchemas } from './handler.js';
 
 const allowed = new Set(['contact.edit', 'contact.share', 'contact.privateNote', 'contact.addPhone', 'contact.phoneFlag', 'session.revoke']);
 // Called only by the local maintenance script. This is not an HTTP endpoint.
