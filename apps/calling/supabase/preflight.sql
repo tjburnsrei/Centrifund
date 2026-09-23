@@ -1,4 +1,4 @@
--- Read-only: run in the intended existing project before either migration.
+-- Read-only: run in the intended dedicated project before either migration.
 -- Every row below is a collision: stop and review; never overwrite or drop it.
 select 'schema' as kind, nspname as name from pg_namespace where nspname='centrifund_crm'
 union all
