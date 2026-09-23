@@ -1,0 +1,43 @@
+name: Calling app and calculator
+on:
+  pull_request:
+    paths:
+      - 'apps/calling/**'
+      - 'eslint.config.js'
+      - '.github/workflows/calling.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/calling/**'
+      - '.github/workflows/calling.yml'
+permissions:
+  contents: read
+jobs:
+  calling:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/calling
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/calling/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+  calculator:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
