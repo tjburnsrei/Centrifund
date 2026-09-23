@@ -8,7 +8,7 @@ The app-specific centrifund_crm namespace and private audio bucket can coexist w
 
 ## Verification completed
 
-- Calling app: lint, TypeScript/production build, and 45 tests passed.
+- Calling app: lint, TypeScript/production build, and 46 tests passed.
 - Calculator: lint, production build, and 107 tests passed.
 - Database tests exercise sharing and private-note isolation, unauthorized requests and audio, stale revisions, concurrent follow-up changes, retry-safe saves, phone flags, opt-outs, queue ordering, import collisions, cleanup and local export/restore.
 - Shared-project tests preserve another application's schema, function, grants, bucket and policy; reject namespace collisions; and block anonymous/authenticated access to calling audio even with an existing broad Storage policy. API tests reject old admin cookies when email login is disabled. The maintenance import/checksum/share/revocation path is verified against the local database.
@@ -19,10 +19,19 @@ The app-specific centrifund_crm namespace and private audio bucket can coexist w
 - Source SHA-256: `4d30247961b45c917ad4fad591784b819a8e989fd0348140abb590cf6094e642`.
 - Original HTML and real contact data were not committed. Rehearsal data existed only in an ephemeral local database.
 
+## Existing infrastructure connected
+
+- Confirmed the Zendra Core project is `xntkmvovlbzipuhmbesl` (supabase-zendra-db) using its saved, working direct Postgres connection. This does not require a new Supabase project or subscription. The browser's Free organization was a different account context; the connected database does not itself expose billing-plan details.
+- Applied migrations 001 and 002 on September 23, 2026: 11 Centrifund tables with RLS, namespaced service-only functions, and the private centrifund-call-audio bucket. Public table and existing Storage-policy fingerprints were unchanged across the transaction. No contacts were imported.
+- Verified the current server secret authenticates successfully and the new private bucket responds through Storage. The saved legacy service-role JWT is retired; the app now supports the current SUPABASE_SECRET_KEY format.
+- Zendra intentionally disables the general Data API (pgrst_no_exposed_schemas). The app's REST RPC transport cannot reach this project. Direct Postgres integration is the remaining compatibility change; adding Zendra's existing postgres@3.4.8 driver is pending explicit dependency approval required by the repository instructions. The rejected install made no dependency/lockfile changes. No public Data API setting was changed.
+- Saved credentials only in ignored .env.admin.local and .env.production.local. The production file is separate from the synthetic development environment. No remote Vercel secrets have been written.
+- Created an independent Vercel project, `zendra-labs/centrifund-calling` (`prj_3jfOEkGsGzs79OIls1j3PMqWelR6`), root apps/calling, Vite, Node 24. No deployment or Git integration was created. The calculator project is unchanged.
+
 ## Release gates — not yet completed
 
-1. **Existing account/project:** use TJ's existing Pro organization, preferably an existing project with the preflight above. No new Pro subscription is authorized or required. The browser account currently available shows only “tjburnsrei's Org” on Free with one project, so the intended Pro organization/project must be made accessible before configuration. No billing changes or hosted database migrations have been made. Adding a project in the same Pro organization would add compute cost (currently from $10/month), so do not provision one without confirming that cost. [Current Supabase pricing](https://supabase.com/pricing).
-2. **Secure configuration:** new Centrifund OpenAI key setup was requested but its confirmed project/key response has not arrived. Configure separate DeepSeek credentials, the selected project's server key, caller password, session secret and cron secret. Keep ADMIN_AUTH_ENABLED=false; email, Supabase Auth users and SMTP are not required. No working credentials have been copied from Zendra.
+1. **Database transport:** approve the standard Postgres dependency, finish the direct server connection and verify the live empty-schema health check. The existing database is reachable; account switching is no longer the blocker.
+2. **Secure configuration:** new Centrifund OpenAI key setup was requested but its confirmed project/key response has not arrived. Configure separate DeepSeek credentials, the selected project's server key, caller password, session secret and cron secret. Keep ADMIN_AUTH_ENABLED=false; email, Supabase Auth users and SMTP are not required. The existing Supabase server credential has been configured privately as authorized; AI credentials remain app-specific.
 3. **Development integration:** verify real private Storage uploads, transcription, draft generation and session recovery in an isolated nonproduction database. Local development remains synthetic; do not connect a Vercel preview to the existing production database for tests. Confirm routing in a separate Vercel project rooted at apps/calling.
 4. **Restore drill:** the local PostgreSQL-compatible export/restore test passed. A hosted Supabase backup restore into an isolated development project is still required; it has not been performed.
 5. **Production import and deployment:** obtain approval for the exact checksum above and the configured deployment. The app is not publicly deployed, and no production contacts have been imported.

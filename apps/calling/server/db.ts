@@ -1,4 +1,8 @@
-import { setting } from './config';
+import { setting, supabaseServerKey } from './config';
+function databaseHeaders(): Record<string,string> {
+    const key = supabaseServerKey();
+    return key.startsWith('sb_secret_') ? { apikey: key } : { apikey: key, Authorization: 'Bearer ' + key };
+}
 export class ApiError extends Error {
     constructor(public status: number, public code: string, message: string) { super(message); }
 }
@@ -18,7 +22,7 @@ const messages: Record<string, [
 };
 export async function rpc<T = any>(name: string, args: object): Promise<T> {
     const response = await fetch(setting('SUPABASE_URL') + '/rest/v1/rpc/' + name, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', apikey: setting('SUPABASE_SERVICE_ROLE_KEY'), Authorization: 'Bearer ' + setting('SUPABASE_SERVICE_ROLE_KEY') },
+        method: 'POST', headers: { 'Content-Type': 'application/json', ...databaseHeaders() },
         body: JSON.stringify(args), signal: AbortSignal.timeout(20000)
     });
     const data = await response.json().catch(() => null);
@@ -31,7 +35,7 @@ export async function rpc<T = any>(name: string, args: object): Promise<T> {
 }
 export async function storage(path: string, init: RequestInit = {}) {
     return fetch(setting('SUPABASE_URL') + '/storage/v1/' + path, {
-        ...init, headers: { apikey: setting('SUPABASE_SERVICE_ROLE_KEY'), Authorization: 'Bearer ' + setting('SUPABASE_SERVICE_ROLE_KEY'), ...init.headers },
+        ...init, headers: { ...databaseHeaders(), ...init.headers },
         signal: AbortSignal.timeout(40000)
     });
 }

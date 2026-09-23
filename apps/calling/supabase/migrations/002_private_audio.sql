@@ -5,8 +5,8 @@ values('centrifund-call-audio','centrifund-call-audio',false,10485760,array['aud
 -- Preserve other apps' policies, while preventing broad existing policies from exposing this bucket.
 create policy centrifund_audio_server_only on storage.objects as restrictive
 for all to anon, authenticated
-using (bucket_id <> 'centrifund-call-audio')
-with check (bucket_id <> 'centrifund-call-audio');
+using (bucket_id is distinct from 'centrifund-call-audio')
+with check (bucket_id is distinct from 'centrifund-call-audio');
 -- Service-role API grants a one-object upload URL only after draft authorization.
 
 commit;

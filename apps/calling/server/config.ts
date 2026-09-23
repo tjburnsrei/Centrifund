@@ -10,3 +10,5 @@ export function adminAllowed(email: string) { return (process.env.ADMIN_EMAILS ?
 
 // Optional future web administration. The first release only needs the caller password.
 export function adminEnabled() { return process.env.ADMIN_AUTH_ENABLED === 'true' && !!process.env.ADMIN_EMAILS?.trim() && !!process.env.SUPABASE_PUBLISHABLE_KEY?.trim(); }
+
+export function supabaseServerKey() { return process.env.SUPABASE_SECRET_KEY?.trim() || setting('SUPABASE_SERVICE_ROLE_KEY'); }

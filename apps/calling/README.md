@@ -13,13 +13,15 @@ Checks: `npm test`, `npm run test:database`, `npm run build`, and `npm run lint`
 ## Database and deployment
 
 1. Reuse an existing project in TJ's **existing Pro organization**, after confirming the actual organization, project and backup status. Do not create another Pro organization. Reusing an existing project avoids another project's compute fee; normal usage charges can still apply. A separate project in the same organization is an optional isolation upgrade, currently from $10/month, and needs cost approval. [Supabase billing](https://supabase.com/docs/guides/platform/billing-on-supabase).
-2. Run the read-only `supabase/preflight.sql` in the intended project. It must return no collisions. Apply the ordered migration files only after reviewing the target and approving the production change. They create a private `centrifund_crm` schema, `public.centrifund_crm_*` functions and the private `centrifund-call-audio` bucket. The migrations are transactional, refuse existing names, and never change another application's tables, grants, Auth configuration, signup settings or SMTP. They have not been applied to any hosted project. If a migration was already applied, use a reviewed forward migration; do not rerun or drop its schema.
+2. Run the read-only `supabase/preflight.sql` in the intended project. It must return no collisions. Apply the ordered migration files only after reviewing the target and approving the production change. They create a private `centrifund_crm` schema, `public.centrifund_crm_*` functions and the private `centrifund-call-audio` bucket. The migrations are transactional, refuse existing names, and never change another application's tables, grants, Auth configuration, signup settings or SMTP. They were applied to the existing Zendra Core project on September 23, 2026; see IMPLEMENTATION-STATUS.md. Do not reapply them to that project. If a migration was already applied, use a reviewed forward migration; do not rerun or drop its schema.
 3. Leave `ADMIN_AUTH_ENABLED=false`. The first release needs **no Supabase Auth users, email codes, publishable key or SMTP sender**. Use the private maintenance tool below for imports, edits, sharing and session revocation. A future web administrator screen remains optional behind an explicit server setting.
-4. Set the app's environment variables privately. The service-role key, shared caller password, session secret and AI keys must never be VITE_* variables or enter the browser bundle. The service-role key is project-wide and bypasses RLS: schema separation is an application access boundary, not separate backend credentials. Keep the deployment and private maintenance environment accessible only to trusted administrators.
+4. Set the app's environment variables privately. The server secret key, shared caller password, session secret and AI keys must never be VITE_* variables or enter the browser bundle. The server secret key is project-wide and bypasses RLS: schema separation is an application access boundary, not separate backend credentials. Keep the deployment and private maintenance environment accessible only to trusted administrators.
 5. Create a separate Vercel project rooted at `apps/calling`. Production uses the selected existing project; local development uses synthetic data. Any hosted Preview integration tests must use a separate nonproduction database, never the production project's credentials. A free development project can stay in a Free organization if available; no second paid plan is needed. Match APP_ORIGIN to the exact deployment origin and configure the daily maintenance cron with CRON_SECRET.
 6. Test with synthetic records, then approve the exact real-data import checksum and production release. Custom DNS remains separate.
 
 Database migrations live with this application. Future CRM consumers use these stable contact IDs and access grants. Co-hosting does not automatically synchronize with Zendra or expose other records.
+
+The selected Zendra project keeps its general Data API disabled. Its integration must use a server-only direct Postgres connection; enabling public database APIs is not required. The standard Postgres driver integration is pending dependency approval. Until it is complete, the maintenance commands below cannot operate against this project even though Storage authentication works.
 
 ## Initial contact import
 
@@ -35,7 +37,7 @@ For a full import rehearsal, run `npm run import:rehearse -- "<private source pa
 
 ## Private maintenance without email login
 
-On a trusted computer, place only SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in ignored `.env.admin.local`. This tool does not require the caller password, OpenAI key or email setup. Every command requires the exact target project reference and refuses a mismatched URL before connecting. It creates an operator session, uses the same validated database operations, and revokes that session afterward. No maintenance HTTP endpoint or extra shared password is introduced.
+On a trusted computer, place only SUPABASE_URL and SUPABASE_SECRET_KEY in ignored `.env.admin.local`. This tool does not require the caller password, OpenAI key or email setup. Every command requires the exact target project reference and refuses a mismatched URL before connecting. It creates an operator session, uses the same validated database operations, and revokes that session afterward. No maintenance HTTP endpoint or extra shared password is introduced.
 
 Run from `apps/calling`:
 
@@ -63,7 +65,7 @@ Caller login is a shared password configured in CALLER_PASSWORD. Activities are 
 
 Opaque session tokens live in HttpOnly, SameSite cookies; the database stores hashes with 30-day expiry. A separate opaque device cookie binds recoverable caller drafts to the same browser across sign-ins. Changing CALLER_PASSWORD invalidates existing caller sessions. The private maintenance tool can revoke every caller session immediately. Changing SESSION_SECRET also invalidates caller password versions. Never claim that access revocation can erase an already exported iPhone contact.
 
-Every API operation authenticates the session. The database operation checks contact sharing before returning or mutating records. Only the server service role may invoke the Centrifund RPC functions. When web administration is disabled, the API also rejects old administrator sessions; the caller password cannot enable it. Private tables deny anon/authenticated access and enable RLS; the browser has no general database connection.
+Every API operation authenticates the session. The database operation checks contact sharing before returning or mutating records. Only the server key (mapped to the service_role database role) may invoke the Centrifund RPC functions. When web administration is disabled, the API also rejects old administrator sessions; the caller password cannot enable it. Private tables deny anon/authenticated access and enable RLS; the browser has no general database connection.
 
 ## iPhone use
 

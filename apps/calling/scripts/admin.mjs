@@ -11,7 +11,7 @@ const project=args.splice(projectIndex,2)[1], [command,...values]=args
 if(!['health','list','show','import-preview','import-confirm','apply'].includes(command))throw new Error(usage)
 const target=new URL(process.env.SUPABASE_URL||'http://missing.invalid')
 if(target.origin!=='https://'+project+'.supabase.co'||target.username||target.password)throw new Error('Project reference does not match SUPABASE_URL. No connection made.')
-if(!process.env.SUPABASE_SERVICE_ROLE_KEY)throw new Error('Set the private service key in .env.admin.local.')
+if(!process.env.SUPABASE_SECRET_KEY&&!process.env.SUPABASE_SERVICE_ROLE_KEY)throw new Error('Set the private service key in .env.admin.local.')
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..'), outputDir=resolve(root,'private-imports')
 let input
 if(command==='show')input=values[0]

@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { randomUUID, createHash } from 'node:crypto';
 import { maintain } from '../server/maintenance';
 import { handle } from '../server/handler';
+import { storage } from '../server/db';
 let db: PGlite, cookie = '', contactId = '', privateId = '';
 const base = 'http://localhost:5180';
 const keys: Record<string, string[]> = { centrifund_crm_request: ['p_session_hash', 'p_password_version', 'p_action', 'p_args', 'p_allow_admin'], centrifund_crm_rate_limit: ['p_bucket', 'p_max', 'p_seconds'], centrifund_crm_create_session: ['p_token_hash', 'p_owner_id', 'p_role', 'p_password_version'], centrifund_crm_audio_cleanup: ['p_completed'] };
@@ -15,6 +16,7 @@ beforeAll(async () => {
     vi.stubEnv('APP_ENV', 'development');
     vi.stubEnv('ADMIN_AUTH_ENABLED', 'false');
     vi.stubEnv('SUPABASE_URL', 'https://fixture.invalid');
+    vi.stubEnv('SUPABASE_SECRET_KEY', '');
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-only-key');
     vi.stubEnv('CALLER_PASSWORD', 'test-password');
     vi.stubEnv('SESSION_SECRET', 'test-session-secret');
@@ -181,6 +183,22 @@ describe('HTTP access boundary', () => {
         await maintain('apply', { action: 'contact.share', args: { contactId, shared: true } });
         await expect(maintain('apply', { action: 'draft.complete', args: {} })).rejects.toThrow('Unsupported');
         expect((await db.query("select * from centrifund_crm.sessions where owner_id='maintenance' and revoked_at is null")).rows).toHaveLength(0);
+    });
+    it('uses the current Supabase server key without treating it as a JWT', async () => {
+        const databaseFetch = fetch;
+        vi.stubEnv('SUPABASE_SECRET_KEY', 'sb_secret_fixture-only');
+        vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
+            const headers = new Headers(init?.headers);
+            expect(headers.get('apikey')).toBe('sb_secret_fixture-only');
+            expect(headers.has('authorization')).toBe(false);
+            if (String(input).includes('/storage/v1/bucket/')) return Response.json({ public: false });
+            return databaseFetch(input, init);
+        });
+        try {
+            expect((await request('/contacts')).status).toBe(200);
+            expect((await storage('bucket/centrifund-call-audio')).status).toBe(200);
+        }
+        finally { vi.stubGlobal('fetch', databaseFetch); vi.stubEnv('SUPABASE_SECRET_KEY', ''); }
     });
     it('invalidates a session on logout', async () => {
         expect((await request('/logout', {})).status).toBe(200);
