@@ -7,3 +7,6 @@ export function setting(name: string) {
 export function origin() { return new URL(setting('APP_ORIGIN')).origin; }
 export function isProduction() { return process.env.APP_ENV === 'production' || process.env.VERCEL_ENV === 'production'; }
 export function adminAllowed(email: string) { return (process.env.ADMIN_EMAILS ?? '').split(',').map(s => s.trim().toLowerCase()).includes(email.trim().toLowerCase()); }
+
+// Optional future web administration. The first release only needs the caller password.
+export function adminEnabled() { return process.env.ADMIN_AUTH_ENABLED === 'true' && !!process.env.ADMIN_EMAILS?.trim() && !!process.env.SUPABASE_PUBLISHABLE_KEY?.trim(); }

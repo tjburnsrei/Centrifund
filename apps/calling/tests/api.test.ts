@@ -1,17 +1,19 @@
 import { beforeAll, afterAll, describe, it, expect, vi } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
 import { readFile } from 'node:fs/promises';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
+import { maintain } from '../server/maintenance';
 import { handle } from '../server/handler';
 let db: PGlite, cookie = '', contactId = '', privateId = '';
 const base = 'http://localhost:5180';
-const keys: Record<string, string[]> = { crm_request: ['p_session_hash', 'p_password_version', 'p_action', 'p_args'], crm_rate_limit: ['p_bucket', 'p_max', 'p_seconds'], crm_create_session: ['p_token_hash', 'p_owner_id', 'p_role', 'p_password_version'], crm_audio_cleanup: ['p_completed'] };
+const keys: Record<string, string[]> = { centrifund_crm_request: ['p_session_hash', 'p_password_version', 'p_action', 'p_args', 'p_allow_admin'], centrifund_crm_rate_limit: ['p_bucket', 'p_max', 'p_seconds'], centrifund_crm_create_session: ['p_token_hash', 'p_owner_id', 'p_role', 'p_password_version'], centrifund_crm_audio_cleanup: ['p_completed'] };
 async function request(path: string, body?: unknown, session = cookie, requestOrigin = base) {
     return handle(new Request(base + '/api' + path, { method: body === undefined ? 'GET' : 'POST', headers: { cookie: session, origin: requestOrigin, 'Content-Type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) }));
 }
 beforeAll(async () => {
     vi.stubEnv('APP_ORIGIN', base);
     vi.stubEnv('APP_ENV', 'development');
+    vi.stubEnv('ADMIN_AUTH_ENABLED', 'false');
     vi.stubEnv('SUPABASE_URL', 'https://fixture.invalid');
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-only-key');
     vi.stubEnv('CALLER_PASSWORD', 'test-password');
@@ -21,8 +23,8 @@ beforeAll(async () => {
     await db.exec(await readFile(new URL('../supabase/migrations/001_calling.sql', import.meta.url), 'utf8'));
     contactId = randomUUID();
     privateId = randomUUID();
-    await db.query("insert into crm.contacts(id,owner_workspace,name,email) values($1,'zendra','Casey Example','casey@example.invalid'),($2,'zendra','Private Example','hidden@example.invalid')", [contactId, privateId]);
-    await db.query("insert into crm.contact_access values($1,'shared')", [contactId]);
+    await db.query("insert into centrifund_crm.contacts(id,owner_workspace,name,email) values($1,'zendra','Casey Example','casey@example.invalid'),($2,'zendra','Private Example','hidden@example.invalid')", [contactId, privateId]);
+    await db.query("insert into centrifund_crm.contact_access values($1,'shared')", [contactId]);
     vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
         const url = String(input), name = url.split('/').at(-1)!;
         if (!url.startsWith('https://fixture.invalid/rest/v1/rpc/') || !keys[name])
@@ -86,9 +88,9 @@ describe('HTTP access boundary', () => {
         const second = await request('/login', { password: 'test-password' }, '');
         const secondCookie = second.headers.getSetCookie().map(c => c.split(';')[0]).join('; ');
         expect((await request('/drafts/' + id + '/audio', { revision: 1, mime: 'audio/mp4', size: 123 }, secondCookie)).status).toBe(404);
-        await db.query("delete from crm.contact_access where contact_id=$1 and workspace_id='shared'", [contactId]);
+        await db.query("delete from centrifund_crm.contact_access where contact_id=$1 and workspace_id='shared'", [contactId]);
         expect((await request('/drafts/' + id + '/audio', { revision: 1, mime: 'audio/mp4', size: 123 })).status).toBe(404);
-        await db.query("insert into crm.contact_access values($1,'shared')", [contactId]);
+        await db.query("insert into centrifund_crm.contact_access values($1,'shared')", [contactId]);
     });
     it('recovers an owned draft after signing back in on the same device', async () => {
         const login = await request('/login', { password: 'test-password' }, '');
@@ -110,10 +112,10 @@ describe('HTTP access boundary', () => {
         vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
             const url = String(input);
             if (url.includes('/storage/v1/object/upload/sign/')) {
-                capturedPath = url.split('/call-audio/')[1];
-                return Response.json({ url: '/object/upload/sign/call-audio/' + capturedPath + '?token=fixture-token' });
+                capturedPath = url.split('/centrifund-call-audio/')[1];
+                return Response.json({ url: '/object/upload/sign/centrifund-call-audio/' + capturedPath + '?token=fixture-token' });
             }
-            if (url.includes('/storage/v1/object/call-audio/'))
+            if (url.includes('/storage/v1/object/centrifund-call-audio/'))
                 return new Response(new Blob(['synthetic audio'], { type: 'audio/mp4' }));
             if (url === 'https://api.openai.com/v1/audio/transcriptions')
                 return Response.json({ text: 'Synthetic transcription preserved.' });
@@ -124,7 +126,7 @@ describe('HTTP access boundary', () => {
         try {
             const upload = await request('/drafts/' + id + '/audio', { revision: 1, mime: 'audio/mp4', size: 123 });
             expect(upload.status).toBe(200);
-            expect((await upload.json()).url).toBe('https://fixture.invalid/storage/v1/object/upload/sign/call-audio/' + capturedPath + '?token=fixture-token');
+            expect((await upload.json()).url).toBe('https://fixture.invalid/storage/v1/object/upload/sign/centrifund-call-audio/' + capturedPath + '?token=fixture-token');
             expect((await request('/drafts/' + id + '/process', { revision: 1 })).status).toBe(502);
             const recovered = await (await request('/action', { action: 'draft.get', args: { id } })).json();
             expect(recovered.transcript).toBe('Synthetic transcription preserved.');
@@ -151,11 +153,34 @@ describe('HTTP access boundary', () => {
             const result = await request('/drafts/' + id + '/process', { revision: draft.revision });
             expect(result.status).toBe(200);
             expect((await result.json()).fields).toMatchObject({ outcome: 'callback', nextAction: 'Call to discuss', followUpDate: '2026-10-01' });
-            expect((await db.query('select * from crm.activities where draft_id=$1', [id])).rows).toHaveLength(0);
+            expect((await db.query('select * from centrifund_crm.activities where draft_id=$1', [id])).rows).toHaveLength(0);
         }
         finally {
             vi.stubGlobal('fetch', databaseFetch);
         }
+    });
+    it('disables email login and rejects old admin cookies in password-only mode', async () => {
+        expect(await (await request('/config')).json()).toEqual({ adminEnabled: false });
+        expect((await request('/admin/code', { email: 'admin@example.invalid' })).status).toBe(403);
+        expect((await request('/admin/verify', { email: 'admin@example.invalid', code: '123456' })).status).toBe(403);
+        const token = 'a'.repeat(64), tokenHash = createHash('sha256').update(token).digest('hex');
+        await db.query("select public.centrifund_crm_create_session($1,'operator','admin',null)", [tokenHash]);
+        const previousAdmin = 'cf_session=' + token;
+        expect((await request('/session', undefined, previousAdmin)).status).toBe(403);
+        expect((await request('/contacts/' + privateId, undefined, previousAdmin)).status).toBe(403);
+        expect((await request('/action', { action: 'contact.share', args: { contactId: privateId, shared: true } }, previousAdmin)).status).toBe(403);
+    });
+    it('lets the private maintenance tool review imports, enforce the checksum, and revoke its sessions', async () => {
+        const source = JSON.stringify([{ id: 999, name: 'Maintenance Example', phones: ['202-555-0155'] }]);
+        const preview = await maintain('import-preview', source);
+        await expect(maintain('import-confirm', { id: preview.id, sourceHash: '0'.repeat(64) })).rejects.toThrow('Contacts changed');
+        expect((await maintain('import-confirm', { id: preview.id, sourceHash: preview.sourceHash })).inserted).toBe(1);
+        expect((await maintain('import-confirm', { id: preview.id, sourceHash: preview.sourceHash })).inserted).toBe(1);
+        await maintain('apply', { action: 'contact.share', args: { contactId, shared: false } });
+        expect((await request('/contacts/' + contactId)).status).toBe(404);
+        await maintain('apply', { action: 'contact.share', args: { contactId, shared: true } });
+        await expect(maintain('apply', { action: 'draft.complete', args: {} })).rejects.toThrow('Unsupported');
+        expect((await db.query("select * from centrifund_crm.sessions where owner_id='maintenance' and revoked_at is null")).rows).toHaveLength(0);
     });
     it('invalidates a session on logout', async () => {
         expect((await request('/logout', {})).status).toBe(200);

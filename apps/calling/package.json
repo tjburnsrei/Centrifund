@@ -11,7 +11,8 @@
     "import:preview": "node scripts/inspect-import.mjs",
     "test:database": "node scripts/test-database.mjs",
     "dev:fixture": "node --env-file-if-exists=.env.local scripts/dev-fixture.mjs",
-    "import:rehearse": "node scripts/rehearse-import.mjs"
+    "import:rehearse": "node scripts/rehearse-import.mjs",
+    "admin": "node --env-file-if-exists=.env.admin.local scripts/admin.mjs"
   },
   "dependencies": {
     "react": "^19.2.4",

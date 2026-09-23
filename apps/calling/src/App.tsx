@@ -4,10 +4,11 @@ import { api, ClientError } from './api';
 import { ContactScreen } from './ContactScreen';
 import { AdminPanel } from './AdminPanel';
 import { hasPending } from './local';
-function Login({ onLogin }: {
+function Login({ onLogin, adminEnabled }: {
+    adminEnabled: boolean;
     onLogin: () => Promise<void>;
 }) {
-    const [admin, setAdmin] = useState(location.pathname === '/admin'), [password, setPassword] = useState(''), [email, setEmail] = useState(''), [code, setCode] = useState(''), [sent, setSent] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('');
+    const [admin, setAdmin] = useState(adminEnabled && location.pathname === '/admin'), [password, setPassword] = useState(''), [email, setEmail] = useState(''), [code, setCode] = useState(''), [sent, setSent] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('');
     async function submit(e: React.FormEvent) { e.preventDefault(); setError(''); setBusy(true); try {
         if (!admin) {
             await api('/login', { password });
@@ -28,9 +29,11 @@ function Login({ onLogin }: {
     finally {
         setBusy(false);
     } }
-    return <main className="login-shell"><div className="brand"><span className="brand-mark">C</span>Centrifund<span className="brand-divider">/</span>Calls</div><section className="login-card"><div className="eyebrow">{admin ? 'ADMINISTRATOR ACCESS' : 'YOUR NEXT CONVERSATION'}</div><h1>{admin ? 'Manage your contacts.' : 'Good calls start here.'}</h1><p className="muted">{admin ? 'Use your administrator email to sign in.' : 'Contact context, a quick call, and notes that stay organized.'}</p><form onSubmit={submit}>{admin ? <><label>Email<input type="email" autoComplete="email" value={email} required disabled={busy || sent} onChange={e => setEmail(e.target.value)}/></label>{sent ? <label>Email code<input value={code} inputMode="numeric" autoComplete="one-time-code" required onChange={e => setCode(e.target.value)} maxLength={10}/></label> : null}</> : <label>Shared password<input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} required/></label>}{error ? <p className="error" role="alert">{error}</p> : null}<button className="button primary" disabled={busy}>{busy ? 'One moment…' : admin && !sent ? 'Send sign-in code' : 'Open calling list →'}</button></form><button className="text-button muted" onClick={() => { setAdmin(!admin); setError(''); setSent(false); }}>{admin ? 'Back to caller sign-in' : 'Administrator sign-in'}</button></section><p className="login-foot">Built for the conversation. Ready for the follow-through.</p></main>;
+    return <main className="login-shell"><div className="brand"><span className="brand-mark">C</span>Centrifund<span className="brand-divider">/</span>Calls</div><section className="login-card"><div className="eyebrow">{admin ? 'ADMINISTRATOR ACCESS' : 'YOUR NEXT CONVERSATION'}</div><h1>{admin ? 'Manage your contacts.' : 'Good calls start here.'}</h1><p className="muted">{admin ? 'Use your administrator email to sign in.' : 'Contact context, a quick call, and notes that stay organized.'}</p><form onSubmit={submit}>{admin ? <><label>Email<input type="email" autoComplete="email" value={email} required disabled={busy || sent} onChange={e => setEmail(e.target.value)}/></label>{sent ? <label>Email code<input value={code} inputMode="numeric" autoComplete="one-time-code" required onChange={e => setCode(e.target.value)} maxLength={10}/></label> : null}</> : <label>Shared password<input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} required/></label>}{error ? <p className="error" role="alert">{error}</p> : null}<button className="button primary" disabled={busy}>{busy ? 'One moment…' : admin && !sent ? 'Send sign-in code' : 'Open calling list →'}</button></form>{adminEnabled ? <button className="text-button muted" onClick={() => { setAdmin(!admin); setError(''); setSent(false); }}>{admin ? 'Back to caller sign-in' : 'Administrator sign-in'}</button> : null}</section><p className="login-foot">Built for the conversation. Ready for the follow-through.</p></main>;
 }
 export default function App() {
+    const [adminEnabled, setAdminEnabled] = useState(false);
+    useEffect(() => { let active = true; void api<{adminEnabled:boolean}>('/config').then(config => { if (active) setAdminEnabled(config.adminEnabled); }).catch(() => undefined); return () => { active = false; }; }, []);
     const [session, setSession] = useState<{
         role: string;
     } | null>(null), [loading, setLoading] = useState(true), [opening, setOpening] = useState(true), [contacts, setContacts] = useState<Contact[]>([]), [contact, setContact] = useState<Contact | null>(null), [selected, setSelected] = useState(() => { try {
@@ -161,7 +164,7 @@ export default function App() {
     if (loading)
         return <main className="loading">Opening Centrifund…</main>;
     if (!session)
-        return <Login onLogin={loadSession}/>;
+        return <Login key={String(adminEnabled)} adminEnabled={adminEnabled} onLogin={loadSession}/>;
     return <><header className="app-header"><a href="/" className="brand" onClick={e => e.preventDefault()}><span className="brand-mark">C</span>Centrifund<span className="brand-divider">/</span><span className="brand-sub">Calls</span></a><nav><button className="mobile-list text-button" disabled={recording || working} onClick={() => setListOpen(!listOpen)}>Contacts</button>{session.role === 'admin' ? <button className="text-button" disabled={recording || working} onClick={() => setAdminOpen(!adminOpen)}>{adminOpen ? 'Calling view' : 'Admin'}</button> : null}<button className="text-button muted" disabled={recording || working} onClick={() => void logout()}>Sign out</button></nav></header>
  {!online ? <div className="offline" role="status">You’re offline. Keep your notes here; reconnect before saving to the CRM.</div> : null}
  {toast ? <div className="toast" role="status">{toast}<button aria-label="Dismiss saved confirmation" onClick={() => setToast('')}>×</button></div> : null}

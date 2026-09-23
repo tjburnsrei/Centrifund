@@ -6,10 +6,10 @@ import type { Contact } from '../shared/types';
 import { fieldSchema, processDraft } from './ai';
 import { ApiError, rpc, storage } from './db';
 import { adminAllowed, adminAuth, checkOrigin, createSession, hash, requestDb, requireAdmin, throttle, verifyPassword } from './auth';
-import { setting } from './config';
+import { adminEnabled, setting } from './config';
 const uuid = z.string().uuid();
 const revision = z.number().int().positive();
-const actionSchemas: Record<string, z.ZodType> = {
+export const actionSchemas: Record<string, z.ZodType> = {
     'draft.ensure': z.object({ id: uuid, contactId: uuid }).strict(),
     'draft.get': z.object({ id: uuid }).strict(),
     'draft.update': z.object({ id: uuid, revision, mutationId: uuid, rawText: z.string().max(20000), fields: fieldSchema, phoneId: uuid.nullable() }).strict(),
@@ -33,18 +33,18 @@ async function cleanup(onlyId?: string) {
     const pending = await rpc<{
         id: string;
         path: string;
-    }[]>('crm_audio_cleanup', { p_completed: [] });
+    }[]>('centrifund_crm_audio_cleanup', { p_completed: [] });
     const selected = pending.filter(row => !onlyId || row.id === onlyId).slice(0, 100);
     const done: string[] = [];
     if (selected.length) {
-        const response = await storage('object/call-audio', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prefixes: selected.map(row => row.path) }) });
+        const response = await storage('object/centrifund-call-audio', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prefixes: selected.map(row => row.path) }) });
         if (response.ok)
             done.push(...selected.map(row => row.id));
         else
             throw new ApiError(503, 'CLEANUP', 'Temporary audio cleanup needs retrying.');
     }
     if (done.length)
-        await rpc('crm_audio_cleanup', { p_completed: done });
+        await rpc('centrifund_crm_audio_cleanup', { p_completed: done });
     return { deleted: done.length, pending: Math.max(0, pending.length - done.length) };
 }
 export async function handle(request: Request): Promise<Response> {
@@ -52,6 +52,10 @@ export async function handle(request: Request): Promise<Response> {
     try {
         const url = new URL(request.url), path = url.pathname;
         checkOrigin(request);
+        if (path === '/api/config' && request.method === 'GET')
+            return json({ adminEnabled: adminEnabled() });
+        if (path.startsWith('/api/admin/') && !adminEnabled())
+            throw new ApiError(403, 'FORBIDDEN', 'Web administration is disabled.');
         if (path === '/api/maintenance' && request.method === 'GET') {
             if (request.headers.get('authorization') !== 'Bearer ' + setting('CRON_SECRET'))
                 throw new ApiError(401, 'UNAUTHORIZED', 'Unauthorized.');
@@ -123,7 +127,7 @@ export async function handle(request: Request): Promise<Response> {
             if (draft.status === 'saved' || draft.status === 'discarded' || draft.status === 'processing')
                 throw new ApiError(409, 'CLOSED', 'This note has already been closed.');
             if (draft.audio_path) {
-                const existing = await storage('object/call-audio/' + draft.audio_path, { method: 'HEAD' });
+                const existing = await storage('object/centrifund-call-audio/' + draft.audio_path, { method: 'HEAD' });
                 if (existing.ok)
                     return json({ uploaded: true, path: draft.audio_path });
             }
@@ -131,7 +135,7 @@ export async function handle(request: Request): Promise<Response> {
             const objectPath = draft.audio_path ?? id + '/' + randomBytes(16).toString('hex') + '.' + extensions[data.mime];
             if (!draft.audio_path)
                 await requestDb(request, 'draft.audio', { id, revision: data.revision, path: objectPath });
-            const r = await storage('object/upload/sign/call-audio/' + objectPath, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-upsert': 'false' }, body: '{}' });
+            const r = await storage('object/upload/sign/centrifund-call-audio/' + objectPath, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-upsert': 'false' }, body: '{}' });
             if (!r.ok)
                 throw new ApiError(503, 'UPLOAD', 'Could not prepare the recording upload. Please retry.');
             const signed = await r.json();

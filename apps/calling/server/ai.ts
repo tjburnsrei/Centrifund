@@ -11,7 +11,7 @@ export const fieldSchema = z.object({
     nextAction: z.string().max(1000), followUpDate: z.string().refine(s => s === '' || (/^\d{4}-\d{2}-\d{2}$/.test(s) && Number.isFinite(Date.parse(s + 'T00:00:00Z')) && new Date(s + 'T00:00:00Z').toISOString().slice(0, 10) === s))
 }).strict();
 async function transcribe(path: string) {
-    const response = await storage('object/call-audio/' + path);
+    const response = await storage('object/centrifund-call-audio/' + path);
     if (!response.ok)
         throw new ApiError(422, 'AUDIO', 'The recording has not finished uploading. Please retry.');
     const audio = await response.blob();
