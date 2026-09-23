@@ -3,11 +3,15 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "functions": {
-    "api/[...path].ts": {
+    "api/index.ts": {
       "maxDuration": 240
     }
   },
   "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api/index"
+    },
     {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
