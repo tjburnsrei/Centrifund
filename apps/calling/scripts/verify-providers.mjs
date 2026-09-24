@@ -5,6 +5,8 @@ import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { createServer } from 'vite'
 
+if (process.argv.includes('--if-enabled') && process.env.CALLING_VERIFY_PROVIDERS !== '1') process.exit(0)
+
 for (const key of ['OPENAI_API_KEY', 'DEEPSEEK_API_KEY']) if (!process.env[key]?.trim()) throw new Error('Missing required configuration: ' + key)
 const audio = await readFile(new URL('./fixtures/provider-note.wav', import.meta.url))
 const fixtureOrigin = 'https://calling-check.invalid'
