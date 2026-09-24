@@ -91,7 +91,7 @@ Raw audio is stored in a private bucket and removed after save/discard, with a d
 
 Use a paid production Supabase project with daily database backups. Verify backups are enabled and document the actual recovery window in the release record. Database backups do not include Storage object contents; temporary audio is intentionally disposable, while completed text lives in the database.
 
-Before launch, restore a production-like backup into an isolated development project, verify contact counts, a known call and follow-up, and access boundaries, then document the result. Never test restoration against the running production project.
+The original release plan called for a restore drill in an isolated development project. TJ deferred hosted database testing on September 23, so this drill has not been performed and no extra test project was created. When scheduling it later, verify contact counts, a known call and follow-up, and access boundaries, then document the result. Never test restoration against the running production project.
 
 The private maintenance tool exposes processing-failure counts with its health command. Server logs contain request IDs, error codes, and timings without contacts or note text. A daily authenticated maintenance request deletes expired audio and stale rate-limit/session rows. Check Vercel failed executions and Supabase availability when a user reports a failure.
 
@@ -107,4 +107,4 @@ This implementation follows the persisted-input, reviewed-draft, contact-binding
 
 If a web administrator screen is wanted later, explicitly enable ADMIN_AUTH_ENABLED, add confirmed Auth users to ADMIN_EMAILS, and configure the publishable key and production email sender. In a shared project, review its existing Auth configuration before making any project-wide changes. Email setup is not a launch requirement.
 
-Provider contracts were checked against [Supabase signed uploads](https://supabase.com/docs/reference/javascript/storage-from-createsigneduploadurl), [DeepSeek structured chat completions](https://api-docs.deepseek.com/api/create-chat-completion/) and [Vercel Node functions](https://vercel.com/docs/functions/runtimes/node-js). A configured development project is still required for live integration verification.
+Provider contracts were checked against [Supabase signed uploads](https://supabase.com/docs/reference/javascript/storage-from-createsigneduploadurl), [DeepSeek structured chat completions](https://api-docs.deepseek.com/api/create-chat-completion/) and [Vercel Node functions](https://vercel.com/docs/functions/runtimes/node-js). A separate development project is required for full live database/Storage integration verification, which the owner has deferred. AI services can be checked independently with the opt-in scripts/verify-providers.mjs flow documented in scripts/fixtures/README.md; it blocks database and Storage network requests.
