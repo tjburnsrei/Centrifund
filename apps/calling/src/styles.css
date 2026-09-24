@@ -626,6 +626,36 @@ summary {
   display: block;
   margin: 15px auto -6px
 }
+.home-screen-help {
+  width: 100%;
+  max-width: 440px;
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.home-screen-help summary {
+  min-height: 44px;
+  color: var(--green);
+}
+.home-screen-help summary:focus-visible {
+  outline: 3px solid #b49651;
+  outline-offset: 3px;
+}
+.home-screen-help ol {
+  padding-left: 22px;
+}
+.home-screen-help li {
+  padding: 4px 0;
+}
+.home-screen-help p {
+  margin-bottom: 0;
+}
+@media (display-mode: standalone) {
+  .home-screen-help {
+    display: none;
+  }
+}
 .login-foot {
   margin-top: 24px;
   font-size: 11px;

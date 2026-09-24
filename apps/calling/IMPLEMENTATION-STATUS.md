@@ -6,8 +6,11 @@ Independent app in `apps/calling`: mobile caller login, shared contact queue/sea
 
 The app runs in its own dedicated Supabase project. Its app-specific centrifund_crm namespace and private audio bucket also refuse naming collisions. A read-only preflight checks for name collisions, and a restrictive Storage policy prevents broad existing policies from exposing the new audio bucket. The SQL schema separates contact identity, access grants, private business notes, shared activity, sessions and drafts. Credentials are server-only. The app has no runtime dependency on the calculator or Zendra.
 
+The Home Screen setup includes an opaque 180px Apple touch icon, 192px/512px manifest icons, a stable standalone app identity, expandable sign-in instructions and an updated iPhone guide. The instructions tell users to save pending notes to the CRM before switching browser containers.
+
 ## Verification completed
 
+- September 23 Home Screen follow-up: lint, both TypeScript checks, production build and all 46 existing tests passed. PNG dimensions/routes/build inclusion verified. Expanded installation instructions checked in Chrome at a measured 391 CSS pixels with no horizontal overflow or browser warnings/errors. Physical iPhone installation and native flows remain part of the pilot.
 - Calling app: lint, TypeScript/production build (including the new NodeNext server check), and 46 tests passed after the hosted runtime fixes. GitHub calling and calculator CI passed on commit 0781fa0.
 - Calculator: lint, production build, and 107 tests passed.
 - Database tests exercise sharing and private-note isolation, unauthorized requests and audio, stale revisions, concurrent follow-up changes, retry-safe saves, phone flags, opt-outs, queue ordering, import collisions, cleanup and local export/restore.
@@ -45,7 +48,7 @@ Zendra's **120 existing public tables** remained in place. Public-column, unrela
 
 ## Release gates — not yet completed
 
-1. **AI credentials:** complete the already requested secure Centrifund OpenAI key picker. Add a separate DEEPSEEK_API_KEY privately to the calling Vercel project's Production environment. The user has also been offered OpenAI for both steps as a simpler alternative; no provider change has been made. Email/SMTP is not required.
+1. **AI credentials:** OpenAI transcription and DeepSeek summaries are retained after the September 23 cost comparison. The user authorized reuse of Zendra Website's keys, but both are marked Sensitive in Vercel and normal reads return no value; checked local environment files contain no usable copies. Supply saved copies privately or complete new-key setup before live AI testing. The calling production environment still has neither key. Email/SMTP is not required.
 2. **Full integration:** verify real private Storage uploads, transcription, editable AI notes, retries and recovery with synthetic contacts in an isolated nonproduction database. The local fixture is ephemeral and no additional paid development project has been provisioned. Never attach production credentials to a preview for tests.
 3. **Restore drill:** the local PostgreSQL-compatible export/restore test passed. Verify hosted daily backups and restore into an isolated development database before release. Hosted backup verification/restore has not been performed.
 4. **Import and public release:** approve the exact reviewed source checksum and final configured release after integration checks. Run the checksum-gated import confirmation and promote the validated deployment. No contacts are active and the public URL is not released. Custom DNS remains separate.
