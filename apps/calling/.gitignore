@@ -1,0 +1,7 @@
+private-imports/
+.env*
+!.env.example
+node_modules/
+dist/
+coverage/
+.vercel/

@@ -1,0 +1,40 @@
+{
+  "name": "centrifund-calling",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env.local scripts/dev.mjs",
+    "build": "tsc --noEmit && tsc -p tsconfig.server.json && vite build",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "import:preview": "node scripts/inspect-import.mjs",
+    "test:database": "node scripts/test-database.mjs",
+    "dev:fixture": "node --env-file-if-exists=.env.local scripts/dev-fixture.mjs",
+    "import:rehearse": "node scripts/rehearse-import.mjs",
+    "admin": "node --env-file-if-exists=.env.admin.local scripts/admin.mjs"
+  },
+  "dependencies": {
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.3.14",
+    "@eslint/js": "^9.39.4",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^24.12.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "globals": "^16.5.0",
+    "jsdom": "^29.0.1",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.57.0",
+    "vite": "^8.0.1",
+    "vitest": "^4.1.1"
+  }
+}

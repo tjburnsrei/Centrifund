@@ -6,7 +6,8 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // Independent apps run their own lint configuration and CI checks.
+  globalIgnores(['dist', 'apps/calling/**']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
