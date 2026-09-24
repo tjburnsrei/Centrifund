@@ -12,26 +12,30 @@ function RecordingPlayer({ audio }: {
         element.current.src = url; return () => URL.revokeObjectURL(url); }, [audio]);
     return <audio ref={element} controls aria-label="Play your recorded notes"/>;
 }
-export function ContactScreen({ contact, role, onSaved, onRecording, onBusy, onRefresh }: {
+export function ContactScreen({ contact, role, onSaved, onRecording, onNavigate, canNavigate = false, onBusy, onRefresh }: {
     contact: Contact;
     role: string;
     onSaved: () => Promise<void>;
     onRecording: (value: boolean) => void;
+    onNavigate?: (direction: 'next' | 'previous') => void;
+    canNavigate?: boolean;
     onBusy?: (value: boolean) => void;
     onRefresh?: () => Promise<void>;
 }) {
     const key = role + ':' + contact.id;
     const [draft, setDraft] = useState<LocalDraft | null>(null), [status, setStatus] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false), [recording, setRecording] = useState(false), [transcript, setTranscript] = useState(''), [seconds, setSeconds] = useState(0);
-    const current = useRef<LocalDraft | null>(null), lock = useRef(false), recorder = useRef<MediaRecorder | null>(null), stream = useRef<MediaStream | null>(null), timer = useRef<ReturnType<typeof setInterval> | null>(null);
+    const current = useRef<LocalDraft | null>(null), lock = useRef(false), recorder = useRef<MediaRecorder | null>(null), stream = useRef<MediaStream | null>(null), timer = useRef<ReturnType<typeof setInterval> | null>(null), touchStart = useRef<{ x: number; y: number } | null>(null);
     const validPhones = contact.phones.filter(p => !p.is_bad);
     const activePhone = contact.phones.find(p => p.id === draft?.phoneId);
     const persist = async (value: LocalDraft) => { current.current = value; setDraft(value); try {
         await localPut(key, value);
         setStatus('Saved on this phone');
+        return true;
     }
     catch {
         setError('This phone could not store the draft. Keep this screen open and save to the CRM before leaving.');
         setStatus('Not saved on this phone');
+        return false;
     } };
     useEffect(() => {
         let alive = true;
@@ -97,7 +101,7 @@ export function ContactScreen({ contact, role, onSaved, onRecording, onBusy, onR
     const save = () => run(async () => {
         if (current.current?.serverSaved)
             return;
-        if (current.current?.audio && !transcript && !window.confirm('This recording has not been transcribed. Save only the written note?'))
+        if ((current.current?.audio || current.current?.audioUploaded) && !transcript && !window.confirm('This recording has not been transcribed. Save only the written note?'))
             return;
         setStatus('Saving…');
         const remote = await sync();
@@ -209,6 +213,51 @@ export function ContactScreen({ contact, role, onSaved, onRecording, onBusy, onR
             onBusy?.(false);
         }
     }
+    const discardRecording = () => run(async () => {
+        const local = current.current;
+        if (!local || (!local.audio && !local.audioUploaded)) return;
+        if (!window.confirm('Discard this recording and its transcription? Your typed notes and selected outcome will stay.')) return;
+        if (local.audioUploaded) await action('draft.discard', { id: local.id });
+        const updated: LocalDraft = {
+            ...local,
+            id: crypto.randomUUID(),
+            revision: 1,
+            fields: local.audioUploaded ? { ...emptyFields(), summary: local.rawText, outcome: local.fields.outcome } : local.fields,
+            audio: undefined,
+            audioUploaded: false,
+            transcript: undefined,
+            dirty: true,
+            mutationId: crypto.randomUUID(),
+            updatedAt: Date.now()
+        };
+        if (await persist(updated)) {
+            setTranscript('');
+            setStatus('Recording discarded');
+        }
+    });
+    const navigate = (direction: 'next' | 'previous') => {
+        if (!canNavigate || busy || recording) return;
+        const local = current.current;
+        const hasUnfinishedNote = Boolean(local && (local.rawText || local.audio || local.fields.outcome || local.fields.summary || local.fields.nextAction || local.fields.followUpDate));
+        if (hasUnfinishedNote && status === 'Not saved on this phone') {
+            setError('This phone could not store your unfinished note. Keep this contact open until you can save it.');
+            return;
+        }
+        if (hasUnfinishedNote && !window.confirm('Skip without logging a call? Your unfinished note will stay on this phone with this contact.')) return;
+        onNavigate?.(direction);
+    };
+    const beginSwipe = (event: React.TouchEvent) => {
+        touchStart.current = null;
+        if (!canNavigate || busy || recording || event.touches.length !== 1 || (event.target as Element).closest('button, input, textarea, select, a, audio, details, summary')) return;
+        touchStart.current = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+    };
+    const endSwipe = (event: React.TouchEvent) => {
+        const start = touchStart.current;
+        touchStart.current = null;
+        if (!start || event.changedTouches.length !== 1) return;
+        const dx = event.changedTouches[0].clientX - start.x, dy = event.changedTouches[0].clientY - start.y;
+        if (Math.abs(dx) >= 80 && Math.abs(dx) > Math.abs(dy) * 1.5) navigate(dx < 0 ? 'next' : 'previous');
+    };
     const discard = () => run(async () => {
         if (!window.confirm('Discard this unfinished note and recording?'))
             return;
@@ -221,8 +270,8 @@ export function ContactScreen({ contact, role, onSaved, onRecording, onBusy, onR
     });
     const date = (value: string) => new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/New_York' }).format(new Date(value));
     const metric = (value: unknown) => value === null || value === undefined || value === '' ? 'Not available' : String(value);
-    return <section className="contact-screen">
-  <div className="eyebrow">CONTACT BRIEF</div>
+    return <section className="contact-screen" onTouchStart={beginSwipe} onTouchEnd={endSwipe} onTouchCancel={() => { touchStart.current = null; }}>
+  <div className="contact-eyebrow"><span className="eyebrow">CONTACT BRIEF</span>{canNavigate ? <span className="swipe-hint">Swipe left or right to browse</span> : null}</div>
   <div className="contact-heading"><div><h1>{contact.name}</h1><p className="company">{contact.company || 'Company not listed'}</p><p className="muted">{[contact.city, contact.county].filter(Boolean).join(' · ') || 'Location not listed'}</p></div><span className="initials" aria-hidden="true">{contact.name.split(' ').map(p => p[0]).slice(0, 2).join('')}</span></div>
   <div className="metrics"><div><span>Loans · last 12 months</span><strong>{metric(contact.background.loans12)}</strong></div><div><span>Typical loan size</span><strong>{typeof contact.background.size === 'number' ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(contact.background.size) : metric(contact.background.size)}</strong></div><div><span>Lender on file</span><strong>{metric(contact.background.lender)}</strong></div></div>
   {contact.background.since ? <p className="muted small">Lending history since {contact.background.since}</p> : null}
@@ -240,15 +289,15 @@ export function ContactScreen({ contact, role, onSaved, onRecording, onBusy, onR
    {!draft ? <p>Restoring your notes…</p> : <>
     <fieldset disabled={busy || recording}><legend>Call outcome</legend><div className="outcomes">{Object.entries(outcomes).map(([value, label]) => <button type="button" aria-pressed={draft.fields.outcome === value} className={draft.fields.outcome === value ? 'selected' : ''} key={value} onClick={() => field({ outcome: value as Outcome })}>{label}</button>)}</div></fieldset>
     <div className="record-row"><button type="button" className={'button ' + (recording ? 'stop' : 'secondary')} disabled={busy} onClick={() => recording ? recorder.current?.stop() : void startRecording()}>{recording ? '■ Stop recording' : '● Record notes'}</button><span className="muted small">Up to 2 minutes.<br />You can also type below.</span></div>
-    {draft?.audio ? <RecordingPlayer audio={draft.audio}/> : null}
+    {draft?.audio || draft?.audioUploaded ? <div className="recording-review">{draft.audio ? <RecordingPlayer audio={draft.audio}/> : null}<button type="button" className="text-button" disabled={busy || recording} onClick={discardRecording}>Discard recording</button></div> : null}
     <label>What happened?<textarea rows={4} maxLength={5000} placeholder="What did you discuss? What is the next step?" value={draft.rawText} disabled={busy || recording} onChange={e => change({ rawText: e.target.value, fields: { ...draft.fields, summary: e.target.value } })}/></label>
-    <button type="button" className="button secondary ai-button" disabled={busy || recording || (!draft.rawText.trim() && !draft.audio)} onClick={generate}>{busy ? 'Working…' : 'Organize my notes'}</button>
+    <button type="button" className="button secondary ai-button" disabled={busy || recording || (!draft.rawText.trim() && !draft.audio && !draft.audioUploaded)} onClick={generate}>{busy ? 'Working…' : 'Organize my notes'}</button>
     {transcript ? <details><summary>Original transcription</summary><p className="preserve">{transcript}</p><button className="text-button" disabled={busy} onClick={() => field({ summary: [draft.rawText, transcript].filter(Boolean).join('\n\n') })}>Use this text as my note</button></details> : null}
     <div className="draft-editor"><label>Note to save<textarea rows={4} maxLength={5000} value={draft.fields.summary} disabled={busy || recording} onChange={e => field({ summary: e.target.value })} placeholder="Review the AI draft here, or write your own note."/></label><div className="form-grid"><label>Next action<input maxLength={1000} value={draft.fields.nextAction} disabled={busy || recording} placeholder="Only if agreed" onChange={e => field({ nextAction: e.target.value })}/></label><label>Follow-up date<input type="date" value={draft.fields.followUpDate} disabled={busy || recording} onInput={e => field({ followUpDate: e.currentTarget.value })}/></label></div>
     {contact.next_action ? <label className="checkbox"><input type="checkbox" checked={draft.completeFollowUp} disabled={busy || recording} onChange={e => change({ completeFollowUp: e.target.checked })}/> Mark the existing follow-up complete</label> : null}
     </div>
     {error ? <div className="error" role="alert">{error}<button className="text-button" disabled={busy || recording} onClick={refresh}>Check saved draft</button></div> : null}
-    <div className="save-row"><button className="text-button muted" disabled={busy || recording} onClick={discard}>Discard note</button><button className="button primary" disabled={busy || recording || draft.serverSaved || !draft.fields.outcome} onClick={save}>{busy ? 'Working…' : 'Save & next →'}</button></div>
+    <div className="save-row"><button className="text-button muted" disabled={busy || recording} onClick={discard}>Discard note</button><button type="button" className="button secondary" disabled={busy || recording || !canNavigate} onClick={() => navigate('next')} aria-label="Skip contact without saving">Skip →</button><button className="button primary" disabled={busy || recording || draft.serverSaved || !draft.fields.outcome} onClick={save}>{busy ? 'Working…' : 'Save & next →'}</button></div>
    </>}
   </section>
   <section className="history" id="call-history"><h2>Shared call history</h2>{!contact.history?.length ? <p className="muted">No calls logged yet.</p> : contact.history.map(entry => <article key={entry.id}><div className="section-heading"><strong>{outcomes[entry.outcome]}</strong><time>{date(entry.created_at)}</time></div><p className="preserve">{entry.summary || 'Outcome recorded without notes.'}</p>{entry.next_action ? <p className="small"><strong>Next:</strong> {entry.next_action}{entry.follow_up_date ? ' · ' + entry.follow_up_date : ''}</p> : null}<span className="muted small">{entry.author}</span></article>)}</section>

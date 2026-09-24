@@ -283,7 +283,19 @@ legend {
 }
 .contact-screen {
   max-width: 800px;
-  margin: 0 auto
+  margin: 0 auto;
+  touch-action: pan-y
+}
+.contact-eyebrow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline
+}
+.swipe-hint {
+  display: none;
+  color: var(--muted);
+  font-size: 11px
 }
 .contact-heading {
   display: flex;
@@ -460,8 +472,14 @@ summary {
 }
 .note-panel audio {
   width: 100%;
-  height: 40px;
+  height: 40px
+}
+.recording-review {
   margin-bottom: 16px
+}
+.recording-review .text-button {
+  display: block;
+  padding-left: 0
 }
 .ai-button {
   width: 100%;
@@ -495,11 +513,15 @@ summary {
 }
 .save-row {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
   border-top: 1px solid var(--line);
   padding-top: 18px
+}
+.save-row>.primary {
+  margin-left: auto
 }
 .error {
   background: #fff1eb;
@@ -752,6 +774,9 @@ summary {
   }
 }
 @media(max-width:700px) {
+  .swipe-hint {
+    display: inline
+  }
   .app-header {
     height: 66px;
     padding: 0 12px;
