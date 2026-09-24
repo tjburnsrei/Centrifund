@@ -19,6 +19,8 @@ Save unfinished notes to the CRM before switching from Safari to the Home Screen
 6. Tap **Organize my notes**. Review the note, next action, and date; correct anything that needs changing.
 7. Tap **Save & next**. Wait for **Call saved to CRM**.
 
+To move on without logging a call, tap **Skip** or swipe left. Swipe right to go back. An unfinished note stays with its contact on this phone and returns when you reopen that contact. If you dislike a recording, tap **Discard recording**; typed notes and your chosen outcome stay in place.
+
 **No answer?** Choose No answer and Save & next.
 
 **Wrong number?** Choose the number you tried, then Bad number. Other numbers stay available.

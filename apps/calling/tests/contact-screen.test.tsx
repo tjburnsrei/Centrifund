@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { cleanup, render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ContactScreen } from '../src/ContactScreen';
-import type { Contact } from '../shared/types';
+import type { Contact, LocalDraft } from '../shared/types';
 import { action } from '../src/api';
 import { localDelete, localPut, localGet } from '../src/local';
 vi.mock('../src/api', () => ({ action: vi.fn(), api: vi.fn() }));
@@ -64,6 +64,54 @@ describe('caller workflow', () => {
         rerender(<ContactScreen key={second.id} contact={second} role="caller" onSaved={saved} onRecording={recording}/>);
         await waitFor(() => expect((screen.getByLabelText('What happened?') as HTMLTextAreaElement).value).toBe(''));
         expect(localPut).toHaveBeenCalledWith('caller:' + contact.id, expect.objectContaining({ contactId: contact.id, rawText: 'Only for Casey' }));
+    });
+    it('discards a local recording while preserving written notes and outcome', async () => {
+        const draft: LocalDraft = { id: crypto.randomUUID(), contactId: contact.id, revision: 1, rawText: 'Typed detail', fields: { summary: 'Typed detail', outcome: 'interested', nextAction: '', followUpDate: '' }, phoneId: contact.phones[0].id, dirty: true, mutationId: crypto.randomUUID(), completeFollowUp: false, updatedAt: Date.now(), audio: new Blob(['synthetic recording'], { type: 'audio/webm' }), audioUploaded: false };
+        vi.mocked(localGet).mockResolvedValueOnce(draft);
+        vi.stubGlobal('confirm', vi.fn(() => true));
+        render(<ContactScreen contact={contact} role="caller" onSaved={vi.fn()} onRecording={vi.fn()}/>);
+        await userEvent.setup().click(await screen.findByRole('button', { name: 'Discard recording' }));
+        await waitFor(() => expect(localPut).toHaveBeenCalledWith('caller:' + contact.id, expect.objectContaining({ rawText: 'Typed detail', audio: undefined, fields: expect.objectContaining({ outcome: 'interested', summary: 'Typed detail' }) })));
+        expect(screen.queryByRole('button', { name: 'Discard recording' })).toBeNull();
+        expect(vi.mocked(action).mock.calls.some(call => call[0] === 'draft.save')).toBe(false);
+    });
+    it('discards uploaded audio and clears its generated summary before a new recording', async () => {
+        const draft: LocalDraft = { id: crypto.randomUUID(), contactId: contact.id, revision: 2, rawText: 'Typed detail', fields: { summary: 'Generated from audio', outcome: 'callback', nextAction: 'Follow up from audio', followUpDate: '2026-10-05' }, phoneId: contact.phones[0].id, dirty: false, mutationId: crypto.randomUUID(), completeFollowUp: false, updatedAt: Date.now(), audio: new Blob(['synthetic recording'], { type: 'audio/webm' }), audioUploaded: true, transcript: 'Voice-only detail' };
+        vi.mocked(localGet).mockResolvedValueOnce(draft);
+        vi.stubGlobal('confirm', vi.fn(() => true));
+        render(<ContactScreen contact={contact} role="caller" onSaved={vi.fn()} onRecording={vi.fn()}/>);
+        await userEvent.setup().click(await screen.findByRole('button', { name: 'Discard recording' }));
+        await waitFor(() => expect(action).toHaveBeenCalledWith('draft.discard', { id: draft.id }));
+        await waitFor(() => expect(localPut).toHaveBeenCalledWith('caller:' + contact.id, expect.objectContaining({ audio: undefined, audioUploaded: false, transcript: undefined, fields: { summary: 'Typed detail', outcome: 'callback', nextAction: '', followUpDate: '' } })));
+        expect(screen.queryByText('Voice-only detail')).toBeNull();
+        expect(vi.mocked(action).mock.calls.some(call => call[0] === 'draft.save')).toBe(false);
+    });
+    it('skips without logging a call and keeps unfinished text with its contact', async () => {
+        const navigate = vi.fn(), confirm = vi.fn(() => true);
+        vi.stubGlobal('confirm', confirm);
+        render(<ContactScreen contact={contact} role="caller" onSaved={vi.fn()} onRecording={vi.fn()} onNavigate={navigate} canNavigate/>);
+        fireEvent.change(await screen.findByLabelText('What happened?'), { target: { value: 'Keep with Casey' } });
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Skip contact without saving' }));
+        expect(confirm).toHaveBeenCalled();
+        expect(navigate).toHaveBeenCalledWith('next');
+        expect(localPut).toHaveBeenCalledWith('caller:' + contact.id, expect.objectContaining({ contactId: contact.id, rawText: 'Keep with Casey' }));
+        expect(vi.mocked(action).mock.calls.some(call => call[0] === 'draft.save')).toBe(false);
+    });
+    it('swipes horizontally between contacts without treating vertical or form gestures as navigation', async () => {
+        const navigate = vi.fn();
+        render(<ContactScreen contact={contact} role="caller" onSaved={vi.fn()} onRecording={vi.fn()} onNavigate={navigate} canNavigate/>);
+        const notes = await screen.findByLabelText('What happened?');
+        const surface = screen.getByText('CONTACT BRIEF').closest('section.contact-screen')!;
+        fireEvent.touchStart(surface, { touches: [{ clientX: 240, clientY: 120 }] });
+        fireEvent.touchEnd(surface, { changedTouches: [{ clientX: 110, clientY: 130 }] });
+        fireEvent.touchStart(surface, { touches: [{ clientX: 110, clientY: 130 }] });
+        fireEvent.touchEnd(surface, { changedTouches: [{ clientX: 240, clientY: 120 }] });
+        expect(navigate.mock.calls).toEqual([['next'], ['previous']]);
+        fireEvent.touchStart(surface, { touches: [{ clientX: 240, clientY: 120 }] });
+        fireEvent.touchEnd(surface, { changedTouches: [{ clientX: 225, clientY: 260 }] });
+        fireEvent.touchStart(notes, { touches: [{ clientX: 240, clientY: 120 }] });
+        fireEvent.touchEnd(notes, { changedTouches: [{ clientX: 110, clientY: 130 }] });
+        expect(navigate).toHaveBeenCalledTimes(2);
     });
     it('offers a direct authenticated vCard and native phone link', async () => {
         render(<ContactScreen contact={contact} role="caller" onSaved={vi.fn()} onRecording={vi.fn()}/>);
