@@ -2,7 +2,7 @@
 
 ## Put Centrifund CRM on your iPhone
 
-1. Open the CRM link in **Safari**.
+1. Open [Centrifund CRM](https://centrifund-calling.vercel.app) in **Safari**.
 2. Tap **Share** (the square with an upward arrow), then **Add to Home Screen**. Scroll down in the Share menu if needed.
 3. Turn on **Open as Web App** if shown, keep the name **Centrifund CRM**, and tap **Add**.
 4. Tap the Centrifund CRM icon on your Home Screen. Enter the shared password if asked. Use this icon for your calls from now on.

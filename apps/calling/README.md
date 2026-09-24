@@ -2,6 +2,10 @@
 
 Centrifund’s private mobile CRM for contacts, conversations, and follow-ups. This app is independent of the root loan calculator.
 
+**Live CRM:** https://centrifund-calling.vercel.app
+
+The calling Vercel project uses explicit deployments and promotion; its Git integration is not connected. The repository’s automatic Vercel check belongs to the separate calculator. For CRM updates, deploy the verified commit specifically to `zendra-labs/centrifund-calling`, check it, then promote it.
+
 ## Brand assets
 
 The supplied Centrifund logo is preserved unchanged in `public/centrifund.jpeg`. The sign-in page and app header use that image with a centered CSS crop; Home Screen icons are PNG sizes of the complete original artwork. Use the supplied navy (`#003152`) and yellow (`#f1bf45`) palette. The product name is **Centrifund CRM**; infrastructure names and routes remain `centrifund-calling` and `apps/calling`.

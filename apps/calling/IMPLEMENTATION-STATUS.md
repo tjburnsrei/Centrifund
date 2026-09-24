@@ -1,5 +1,15 @@
 # Implementation and release status — September 23, 2026
 
+## Published release
+
+TJ explicitly approved import and publication on September 23, 2026. **Centrifund CRM is live at https://centrifund-calling.vercel.app**. Deployment `dpl_6QNtuTJVXKYaEXQZAYpef4CXjMMd` is READY and promoted to the public domain from verified runtime commit `ab18439b14efd47c2331b0820626ba531b26789b`. Calling and calculator GitHub checks passed for this commit. PR #2 was merged by the owner during publication (merge commit `00476d2`); the published runtime is the identical verified branding commit from that PR.
+
+The checksum-gated import returned 151 inserted, 0 updated and 0 skipped. The actual imported list reconciles to **151 contacts, 413 phone methods and 1 contact without a phone**. The calling queue has 150 callable contacts; the missing-number record is retained in All contacts.
+
+Post-publication checks passed: HTTPS page and CRM title, original-logo checksum, manifest name, password sign-in, Secure/HttpOnly/SameSite session cookie, caller role, all 151 contacts, contact detail, vCard response, anonymous rejection, administrator rejection, logout and rejection of the ended session. Verification created no calls, drafts, notes or recordings. Operator and caller verification sessions were revoked afterward. Physical iPhone call/return and recording remain for Jim’s pilot.
+
+The calling Vercel project currently has no automatic Git integration; the production release was explicitly deployed from the GitHub commit and promoted. Repository Vercel checks belong to the calculator and do not deploy this CRM automatically.
+
 ## Implemented
 
 Independent app in `apps/calling`: mobile caller login, shared contact queue/search, native calling, Save to iPhone vCards, call outcomes, typed/recorded notes, reviewed AI drafts, history, follow-ups, recoverable local drafts, and idempotent saves. The first release uses the shared caller password only; email login is optional and disabled by default. A private maintenance tool handles reviewed imports, contact/phone edits, private notes, sharing, processing health and caller-session revocation.
@@ -34,15 +44,15 @@ The Home Screen setup includes an opaque 180px Apple touch icon, 192px/512px man
 - Live HTTP checks: anonymous RPC access denied (401 / PostgreSQL 42501); private schema access denied (406); unauthenticated signed audio upload denied; server access to the private bucket succeeded (200).
 - Connected this resource only to the **production environment** of `zendra-labs/centrifund-calling` (`prj_3jfOEkGsGzs79OIls1j3PMqWelR6`). Configured origin, caller password, session/cron secrets, disabled email administration and model settings. Caller/session/cron secrets are marked Sensitive. Both AI provider keys were subsequently supplied by TJ in the Production environment as Sensitive variables.
 - Ignored local .env.admin.local, .env.production.local and .env.database.local contain only the new project's credentials. The normal synthetic development fixture does not load them. No Postgres runtime dependency was added.
-- Prepared a hosted import preview and reconciled **151 contacts / 413 phone methods / 1 without a phone**, with no ambiguous matches and the unchanged source checksum above. The review is retained privately; **confirmation has not run and the calling contact list remains empty**.
+- Prepared a hosted import preview and reconciled **151 contacts / 413 phone methods / 1 without a phone**, with no ambiguous matches and the unchanged source checksum above. The review is retained privately. Confirmation subsequently completed after TJ’s explicit approval: 151 inserted, none skipped; see the published release above.
 
 ## Protected deployment verified
 
-The current protected candidate is [centrifund-calling-qi1965doh-zendra-labs.vercel.app](https://centrifund-calling-qi1965doh-zendra-labs.vercel.app), deployment `dpl_HUgk7EQyHzjZ191QNMyorNViVQFZ`, source commit `87aae39`. It includes the Home Screen setup and both configured AI credentials. The earlier 17 hosted smoke checks were performed on deployment dpl_KWzQQpJrsrxbNH3RMG26hckUtdDt (0781fa0); application backend behavior is unchanged. It was built with production configuration and automatic assignment of the public production URL disabled. It is not Jim's released app. The intended public origin is https://centrifund-calling.vercel.app.
+The earlier provider-verification candidate was [centrifund-calling-qi1965doh-zendra-labs.vercel.app](https://centrifund-calling-qi1965doh-zendra-labs.vercel.app), deployment `dpl_HUgk7EQyHzjZ191QNMyorNViVQFZ`, source commit `87aae39`. It includes the Home Screen setup and both configured AI credentials. The earlier 17 hosted smoke checks were performed on deployment dpl_KWzQQpJrsrxbNH3RMG26hckUtdDt (0781fa0); application backend behavior is unchanged. It was built with production configuration and automatic assignment of the public production URL disabled. It is retained as historical verification evidence. The newer branded release and public origin are recorded above.
 
 Hosted testing found and fixed two deployment-specific issues: missing ESM file extensions in server imports, and nested API URLs not reaching the server function. Relative server imports now use .js extensions, the build checks NodeNext module rules, and an explicit /api/:path* rewrite targets api/index.ts.
 
-**17 hosted smoke checks passed:** frontend, anonymous contact denial, cross-origin denial, login, Secure/HttpOnly/SameSite cookies, caller session, database-backed empty queue, administrator endpoint/action denial, nested contact/vCard/audio/processing authorization, maintenance authentication, logout and session revocation. Test sessions were logged out. These checks did not import contacts, save calls, upload recordings or call AI providers. The public release and physical phone workflow remain unverified.
+**17 hosted smoke checks passed:** frontend, anonymous contact denial, cross-origin denial, login, Secure/HttpOnly/SameSite cookies, caller session, database-backed empty queue, administrator endpoint/action denial, nested contact/vCard/audio/processing authorization, maintenance authentication, logout and session revocation. Test sessions were logged out. These checks did not import contacts, save calls, upload recordings or call AI providers. The public release was subsequently verified as recorded above; the physical phone workflow remains for the pilot.
 
 ## Zendra separation completed
 
@@ -58,10 +68,10 @@ This is a provider integration check, not an iPhone recording or hosted Storage 
 
 ## Release status and remaining gates
 
-1. **AI credentials:** OpenAI transcription and DeepSeek summaries are retained after the September 23 cost comparison. The user authorized reuse of Zendra Website's keys, but both are marked Sensitive in Vercel and normal reads return no value; checked local environment files contain no usable copies. Supply saved copies privately or complete new-key setup before live AI testing. The user subsequently added both keys to the calling project's Production environment. Presence and Sensitive/server-only storage were verified. The AI-only live check passed: both providers returned HTTP 200, the transcript was retained before note generation, the returned fields passed schema validation and the exact stated follow-up date was preserved. Email/SMTP is not required.
+1. **AI credentials:** both app-specific runtime settings are configured privately in the calling project’s Production environment as Sensitive variables. OpenAI transcription and DeepSeek structured notes passed the AI-only live check. Email/SMTP is not required.
 2. **Verification scope changed by owner:** TJ declined the proposed temporary test database and database testing on September 23. No extra project was provisioned. Production database/Storage integration testing is skipped. The opt-in scripts/verify-providers.mjs check uses a local synthetic recording, dummy database settings and in-memory draft/Storage responses; only the exact OpenAI and DeepSeek endpoints may receive network requests. This verifies the AI path without contact/database/Storage mutations. Full native-phone behavior remains part of the pilot.
 3. **Restore drill deferred by owner:** the existing local export/restore test passed. The hosted restore drill is skipped with the declined database testing. Hosted backup availability and restoration remain unverified; keep the documented recovery procedure for a later operations check.
-4. **Import and public release:** approve the exact reviewed source checksum and final configured release after integration checks. Run the checksum-gated import confirmation and promote the validated deployment. No contacts are active and the public URL is not released. Custom DNS remains separate.
+4. **Import and public release — completed:** TJ approved the exact staged import and publication. All 151 contacts were imported and the branded release was promoted to https://centrifund-calling.vercel.app. Custom DNS remains separate.
 5. **Phone pilot:** on Jim's iPhone, open → call → return → record → review → save → reopen history; test microphone denial/interruption and Save to iPhone's native confirmation.
 
 ## Local preview
