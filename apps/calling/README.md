@@ -1,6 +1,10 @@
-# Centrifund Calls
+# Centrifund CRM
 
-A private mobile calling app and shared CRM foundation. This app is independent of the root loan calculator.
+Centrifund’s private mobile CRM for contacts, conversations, and follow-ups. This app is independent of the root loan calculator.
+
+## Brand assets
+
+The supplied Centrifund logo is preserved unchanged in `public/centrifund.jpeg`. The sign-in page and app header use that image with a centered CSS crop; Home Screen icons are PNG sizes of the complete original artwork. Use the supplied navy (`#003152`) and yellow (`#f1bf45`) palette. The product name is **Centrifund CRM**; infrastructure names and routes remain `centrifund-calling` and `apps/calling`.
 
 ## Local development
 

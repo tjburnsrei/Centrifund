@@ -6,9 +6,13 @@ Independent app in `apps/calling`: mobile caller login, shared contact queue/sea
 
 The app runs in its own dedicated Supabase project. Its app-specific centrifund_crm namespace and private audio bucket also refuse naming collisions. A read-only preflight checks for name collisions, and a restrictive Storage policy prevents broad existing policies from exposing the new audio bucket. The SQL schema separates contact identity, access grants, private business notes, shared activity, sessions and drafts. Credentials are server-only. The app has no runtime dependency on the calculator or Zendra.
 
+The product is branded **Centrifund CRM** using the owner-supplied Centrifund JPEG unchanged, its navy/yellow palette, and branded sign-in, header, browser title and Home Screen identity. Home Screen PNGs contain the complete supplied artwork; the original logo bytes are retained in the public asset.
+
 The Home Screen setup includes an opaque 180px Apple touch icon, 192px/512px manifest icons, a stable standalone app identity, expandable sign-in instructions and an updated iPhone guide. The instructions tell users to save pending notes to the CRM before switching browser containers.
 
 ## Verification completed
+
+- September 23 CRM branding follow-up: lint, client/server TypeScript checks, production build and all 46 tests passed. Verified the original and built JPEG match the supplied image byte-for-byte and PNG sizes are 180/192/512. Sign-in and expanded installation help render at 391 CSS pixels with no horizontal overflow. A 1Password confirmation stalled browser automation before authenticated-header and desktop visual checks could finish; those checks remain unverified for this styling change. The earlier functional calling checks still apply. No production database or Storage testing was performed for branding.
 
 - September 23 Home Screen follow-up: lint, both TypeScript checks, production build and all 46 existing tests passed. PNG dimensions/routes/build inclusion verified. Expanded installation instructions checked in Chrome at a measured 391 CSS pixels with no horizontal overflow or browser warnings/errors. Physical iPhone installation and native flows remain part of the pilot.
 - Calling app: lint, TypeScript/production build (including the new NodeNext server check), and 46 tests passed after the hosted runtime fixes. GitHub calling and calculator CI passed on commit 0781fa0.

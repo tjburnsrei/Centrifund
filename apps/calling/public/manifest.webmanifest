@@ -1,10 +1,10 @@
 {
-  "name": "Centrifund Calls",
-  "short_name": "Centrifund",
+  "name": "Centrifund CRM",
+  "short_name": "Centrifund CRM",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f6f5ef",
-  "theme_color": "#0d3431",
+  "background_color": "#003152",
+  "theme_color": "#003152",
   "icons": [
     {
       "src": "/icon-192.png",

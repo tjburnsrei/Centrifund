@@ -1,14 +1,14 @@
 :root {
   font-family: Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  color: #183633;
-  background: #f6f5ef;
+  color: #16364d;
+  background: #f4f7fa;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  --green: #0d3431;
-  --gold: #ead29d;
-  --muted: #657571;
-  --line: #dfE4dc
+  --navy: #003152;
+  --gold: #f1bf45;
+  --muted: #607383;
+  --line: #dce4eb
 }
 * {
   box-sizing: border-box
@@ -40,8 +40,8 @@ h1,h2,h3,p {
   margin-top: 0
 }
 h1 {
-  font-family: Georgia,"Times New Roman",serif;
-  font-weight: 400;
+  font-family: inherit;
+  font-weight: 650;
   font-size: 42px;
   line-height: 1.15;
   letter-spacing: -1.2px;
@@ -59,11 +59,11 @@ p {
 }
 input,textarea,select {
   width: 100%;
-  border: 1px solid #cbd5cf;
+  border: 1px solid #c9d6e0;
   border-radius: 10px;
   background: #fff;
   padding: 12px;
-  color: #183633;
+  color: #16364d;
   min-height: 46px;
   font-size: 16px
 }
@@ -82,12 +82,12 @@ label input,label textarea,label select {
   margin-top: 8px
 }
 input:focus,textarea:focus,select:focus {
-  outline: 3px solid #d9e7d7;
+  outline: 3px solid #d5e7f3;
   outline-offset: 1px;
-  border-color: #407a68
+  border-color: #356c93
 }
 button:focus-visible,a:focus-visible {
-  outline: 3px solid #b49651;
+  outline: 3px solid #d69f22;
   outline-offset: 3px
 }
 fieldset {
@@ -116,19 +116,19 @@ legend {
   white-space: nowrap
 }
 .primary {
-  background: var(--green);
+  background: var(--navy);
   color: #fff
 }
 .primary:hover {
-  background: #174a43
+  background: #06456e
 }
 .secondary {
   background: #fff;
-  border-color: #cbd5cf;
-  color: var(--green)
+  border-color: #c9d6e0;
+  color: var(--navy)
 }
 .secondary:hover {
-  background: #f1f5ee
+  background: #eef4f8
 }
 .text-button {
   background: none;
@@ -149,7 +149,7 @@ legend {
   font-weight: 750;
   letter-spacing: 1.7px;
   margin-bottom: 12px;
-  color: #527369
+  color: #4c6a80
 }
 .brand {
   display: flex;
@@ -160,35 +160,34 @@ legend {
   letter-spacing: -.4px;
   white-space: nowrap
 }
-.brand-mark {
-  background: var(--green);
+.brand-logo {
+  display: block;
+  width: 200px;
+  height: 44px;
+  object-fit: cover;
+  flex-shrink: 0
+}
+.brand-product {
   color: var(--gold);
-  display: grid;
-  place-items: center;
-  border-radius: 9px;
-  width: 32px;
-  height: 32px;
-  font-family: Georgia,serif;
-  font-size: 24px;
-  font-weight: 400
-}
-.brand-divider {
-  font-weight: 300;
-  color: #a0afa7;
-  margin: 0 2px
-}
-.brand-sub {
-  font-weight: 400
+  border-left: 1px solid #ffffff40;
+  padding-left: 12px;
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  font-weight: 650
 }
 .app-header {
   height: 76px;
-  background: #fff;
+  background: var(--navy);
+  color: #fff;
   border-bottom: 1px solid var(--line);
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0 32px;
   gap: 12px
+}
+.app-header .muted {
+  color: #d0dfe9
 }
 .app-header nav {
   display: flex;
@@ -204,7 +203,7 @@ legend {
 }
 .contact-list {
   border-right: 1px solid var(--line);
-  background: #fbfbf7;
+  background: #f8fafc;
   padding: 30px 18px;
   height: calc(100dvh - 76px);
   position: sticky;
@@ -224,7 +223,7 @@ legend {
 .view-tabs {
   display: flex;
   padding: 4px;
-  background: #eaeee7;
+  background: #e8eef3;
   border-radius: 10px;
   margin: 18px 0 14px
 }
@@ -236,12 +235,12 @@ legend {
   font-weight: 650;
   border-radius: 7px;
   min-height: 36px;
-  color: #53645e
+  color: #536b7c
 }
 .view-tabs button[aria-pressed=true] {
   background: white;
-  color: var(--green);
-  box-shadow: 0 1px 3px #142f2112
+  color: var(--navy);
+  box-shadow: 0 1px 3px #00315212
 }
 .list-items {
   overflow: auto;
@@ -263,11 +262,11 @@ legend {
   font-size: 12px
 }
 .list-contact:hover {
-  background: #edf1e8
+  background: #edf3f8
 }
 .list-contact.active {
-  border-color: #bed0bf;
-  background: #e8efe1
+  border-color: #9ebed4;
+  background: #e4eff7
 }
 .list-name {
   font-size: 14px;
@@ -275,7 +274,7 @@ legend {
 }
 .list-tag {
   font-size: 10px;
-  color: #718276;
+  color: #657c8e;
   margin-top: 4px
 }
 .main-panel {
@@ -301,8 +300,8 @@ legend {
   font-size: 13px
 }
 .initials {
-  background: #e9eadc;
-  border: 1px solid #d8dfcb;
+  background: #e4edf5;
+  border: 1px solid #c4d7e5;
   border-radius: 50%;
   width: 65px;
   height: 65px;
@@ -311,7 +310,7 @@ legend {
   place-items: center;
   font-family: Georgia,serif;
   font-size: 22px;
-  color: #46654f
+  color: #315b79
 }
 .metrics {
   display: grid;
@@ -360,15 +359,15 @@ summary {
   border-bottom: 1px solid var(--line)
 }
 .followup {
-  background: #f3ead4;
-  border-left: 3px solid #bea264;
+  background: #fff5d9;
+  border-left: 3px solid #f1bf45;
   border-radius: 0 8px 8px 0;
   padding: 14px 18px;
   margin-bottom: 24px
 }
 .followup .eyebrow {
   font-size: 9px;
-  color: #756039
+  color: #755718
 }
 .followup p {
   font-size: 14px;
@@ -395,7 +394,7 @@ summary {
 }
 .hint {
   font-size: 11px;
-  color: #7a857d;
+  color: #657887;
   line-height: 1.65;
   margin: 10px 0 28px
 }
@@ -405,7 +404,7 @@ summary {
   border-radius: 16px;
   padding: 24px;
   margin-bottom: 36px;
-  box-shadow: 0 8px 30px #233c2510
+  box-shadow: 0 8px 30px #0031520b
 }
 .section-heading {
   display: flex;
@@ -432,18 +431,18 @@ summary {
   flex-wrap: wrap
 }
 .outcomes button {
-  background: #f6f7f3;
-  border: 1px solid #e0e5dd;
+  background: #f5f8fa;
+  border: 1px solid #dce5ed;
   border-radius: 7px;
   font-size: 11px;
   padding: 10px 12px;
   min-height: 42px;
-  color: #53675c
+  color: #456176
 }
 .outcomes button.selected {
-  background: #dfebdc;
-  border-color: #8dae86;
-  color: #244632;
+  background: #e0edf7;
+  border-color: #719fbd;
+  color: #003152;
   font-weight: 650
 }
 .record-row {
@@ -467,7 +466,7 @@ summary {
 .ai-button {
   width: 100%;
   margin-bottom: 18px;
-  background: #f2f5ed
+  background: #edf4f9
 }
 .draft-editor {
   border-top: 1px solid var(--line);
@@ -492,7 +491,7 @@ summary {
   height: 18px;
   margin: 0;
   flex-shrink: 0;
-  accent-color: var(--green)
+  accent-color: var(--navy)
 }
 .save-row {
   display: flex;
@@ -520,7 +519,7 @@ summary {
   margin-bottom: 20px
 }
 .history article {
-  border-left: 2px solid #d6decb;
+  border-left: 2px solid #d4e0e9;
   padding: 2px 0 14px 20px;
   margin-bottom: 22px
 }
@@ -554,7 +553,7 @@ summary {
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
-  background: #16453b;
+  background: #003152;
   color: #fff;
   border-radius: 10px;
   padding: 10px 15px;
@@ -595,10 +594,15 @@ summary {
   align-items: center;
   justify-content: center;
   padding: 32px;
-  background: radial-gradient(ellipse at 20% 10%,#e3eadc,transparent 60%),#f6f5ef
+  background: var(--navy)
 }
 .login-shell>.brand {
-  margin-bottom: 40px
+  margin-bottom: 32px;
+  gap: 4px
+}
+.login-shell .brand-logo {
+  width: 250px;
+  height: 58px
 }
 .login-card {
   width: 100%;
@@ -607,7 +611,7 @@ summary {
   border: 1px solid var(--line);
   padding: 36px;
   border-radius: 18px;
-  box-shadow: 0 15px 60px #253f2910
+  box-shadow: 0 15px 60px #001b2e30
 }
 .login-card h1 {
   font-size: 35px
@@ -619,8 +623,13 @@ summary {
   margin-top: 28px
 }
 .login-card .primary {
+  background: var(--gold);
+  color: var(--navy);
   width: 100%;
   margin-top: 4px
+}
+.login-card .primary:hover {
+  background: #ffd16a
 }
 .login-card>.text-button {
   display: block;
@@ -630,16 +639,16 @@ summary {
   width: 100%;
   max-width: 440px;
   margin-top: 18px;
-  color: var(--muted);
+  color: #d0dfe9;
   font-size: 13px;
   line-height: 1.6;
 }
 .home-screen-help summary {
   min-height: 44px;
-  color: var(--green);
+  color: var(--gold);
 }
 .home-screen-help summary:focus-visible {
-  outline: 3px solid #b49651;
+  outline: 3px solid #d69f22;
   outline-offset: 3px;
 }
 .home-screen-help ol {
@@ -659,7 +668,7 @@ summary {
 .login-foot {
   margin-top: 24px;
   font-size: 11px;
-  color: #849081;
+  color: #c5d7e3;
   text-align: center
 }
 .loading {
@@ -679,7 +688,7 @@ summary {
   font-size: 12px
 }
 .admin-stats span {
-  background: #e9eee3;
+  background: #eaf1f7;
   border-radius: 6px;
   padding: 8px 12px
 }
@@ -699,7 +708,7 @@ summary {
   border-top: 1px solid var(--line)
 }
 .notice {
-  background: #e5eedf;
+  background: #e8f2f9;
   padding: 16px;
   border-radius: 8px;
   font-size: 13px
@@ -746,14 +755,21 @@ summary {
 @media(max-width:700px) {
   .app-header {
     height: 66px;
-    padding: 0 16px
+    padding: 0 12px;
+    gap: 8px
   }
   .app-header .brand {
     font-size: 15px;
     gap: 7px
   }
-  .brand-sub,.brand-divider {
-    display: none
+  .app-header .brand-logo {
+    width: 140px;
+    height: 38px
+  }
+  .app-header .brand-product {
+    padding-left: 8px;
+    font-size: 10px;
+    letter-spacing: 1px
   }
   .app-header nav {
     gap: 0
@@ -761,11 +777,6 @@ summary {
   .app-header .text-button {
     font-size: 11px;
     padding-inline: 7px
-  }
-  .brand-mark {
-    width: 28px;
-    height: 28px;
-    font-size: 22px
   }
   .mobile-list {
     display: inline-block
@@ -784,7 +795,7 @@ summary {
     inset: 66px 0 0;
     height: auto;
     padding: 24px;
-    background: #fbfbf7
+    background: #f8fafc
   }
   .main-panel {
     padding: 27px 18px calc(30px + env(safe-area-inset-bottom))
@@ -891,7 +902,7 @@ summary {
   overflow-wrap: anywhere;
 }
 .latest-note {
-  border-left: 2px solid #cad8c4;
+  border-left: 2px solid #b7cedf;
   padding: 8px 16px;
   margin-bottom: 20px;
 }
